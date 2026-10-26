@@ -1,0 +1,1014 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#080e13">
+  <meta name="description" content="An interactive, cinematic study of the green light across Gatsby's bay. A quiet moment of water, fog, and impossible longing.">
+  <title>The Green Light | An Interactive Reverie</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;450;500;600&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"
+      }
+    }
+  </script>
+  <style>
+    :root {
+      color-scheme: dark;
+      --paper: #e5e7de;
+      --muted: #9babae;
+      --green: #a3c6a7;
+      --line: rgba(192, 210, 211, .16);
+      --edge: clamp(25px, 3.75vw, 64px);
+      --serif: 'Instrument Serif', Georgia, serif;
+      --sans: 'DM Sans', Arial, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; }
+    body { background: #080e13; color: var(--paper); font-family: var(--sans); -webkit-font-smoothing: antialiased; }
+    button, input { font: inherit; }
+    button { color: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+    button:disabled { cursor: not-allowed; opacity: .45; }
+    button:focus-visible, a:focus-visible, input:focus-visible { outline: 1px solid #b6dbb9; outline-offset: 6px; }
+    button { border: 0; background: none; }
+    svg { display: block; }
+    [hidden] { display: none !important; }
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+    #world, #preview, .world-canvas { position: fixed; inset: 0; width: 100%; height: 100%; }
+    #world { z-index: 1; }
+    #preview { z-index: 0; }
+    .world-canvas { display: block; opacity: 0; transition: opacity 1.8s ease; }
+    .world-canvas.is-ready { opacity: 1; }
+    .scene-shade { position: fixed; inset: 0; z-index: 2; pointer-events: none; background: linear-gradient(90deg, rgba(3, 8, 12, .43), transparent 59%), linear-gradient(180deg, rgba(3, 7, 11, .18), transparent 22%, transparent 75%, rgba(3, 7, 11, .49)), radial-gradient(ellipse at 55% 48%, transparent 32%, rgba(1, 5, 9, .22) 100%); }
+    .grain { position: fixed; inset: 0; z-index: 3; opacity: .032; pointer-events: none; mix-blend-mode: screen; }
+    .site-header { position: absolute; z-index: 6; inset: 0 0 auto; padding: 37px var(--edge); display: flex; align-items: center; justify-content: space-between; transition: opacity .65s ease, transform .65s ease; animation: fade-in 1.6s backwards; }
+    .wordmark { display: inline-flex; align-items: center; gap: 13px; font-size: 10px; font-weight: 500; letter-spacing: .22em; line-height: 1; text-decoration: none; color: #d5dfd5; }
+    .brand-mark { width: 26px; height: 31px; color: #a3c6a7; }
+    .navigation { display: flex; align-items: center; gap: 35px; }
+    .nav-item { position: relative; padding: 9px 0; font-size: 11px; color: #9ba8ac; transition: color .25s; }
+    .nav-item:hover { color: var(--paper); }
+    .nav-item.active { color: #e0e6df; }
+    .nav-item.active::before { content: ''; position: absolute; left: -13px; top: 50%; width: 4px; height: 4px; border-radius: 50%; background: #9ccaa3; box-shadow: 0 0 8px #78a98350; transform: translateY(-50%); }
+    .nav-divider { height: 15px; width: 1px; background: var(--line); margin-left: -7px; }
+    .icon-button { width: 28px; height: 32px; display: grid; place-items: center; color: #a9b6b9; transition: color .2s; }
+    .icon-button:hover { color: #edf2e8; }
+    .navigation .icon-button { margin-left: -15px; }
+    .intro { position: absolute; z-index: 5; top: 25.6%; left: 8.35%; max-width: 600px; transition: opacity .7s ease, transform .9s cubic-bezier(.2, .7, .2, 1); }
+    .eyebrow { display: flex; align-items: center; gap: 12px; margin: 0 0 27px; color: #a1b6ad; font-size: 9px; font-weight: 500; letter-spacing: .24em; animation: rise-in 1.3s .15s both; }
+    .eyebrow::before { content: ''; width: 22px; height: 1px; background: #8ba694; }
+    h1 { font-family: var(--serif); font-size: clamp(80px, 8.1vw, 128px); line-height: .955; font-weight: 400; letter-spacing: -.035em; margin: 0 0 27px; color: #e4e7dd; }
+    h1 span { display: block; animation: rise-in 1.65s .27s both; }
+    h1 em { display: block; font-weight: 400; color: #cbdaca; animation: rise-in 1.65s .4s both; }
+    .intro-copy { font-size: 12px; line-height: 1.95; font-weight: 400; color: #a4b1b4; letter-spacing: .013em; margin: 0; animation: rise-in 1.5s .55s both; }
+    .enter-button { display: inline-flex; align-items: center; justify-content: space-between; gap: 31px; min-width: 180px; min-height: 46px; margin-top: 29px; padding: 0 19px; font-size: 11px; letter-spacing: .025em; border: 1px solid rgba(184, 204, 193, .35); background: rgba(11, 23, 24, .14); transition: border-color .3s, background .3s; animation: rise-in 1.5s .7s both; }
+    .enter-button svg { transition: transform .3s; }
+    .enter-button:hover { border-color: #a5c4a7; background: rgba(121, 171, 136, .09); }
+    .enter-button:hover svg { transform: translateX(4px); }
+    .scene-footer { position: absolute; z-index: 8; left: var(--edge); right: var(--edge); bottom: 28px; padding-top: 23px; border-top: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; gap: 20px; animation: fade-in 2s .8s backwards; transition: opacity .6s; }
+    .playback-controls { display: flex; align-items: center; gap: 24px; }
+    .footer-control { display: inline-flex; align-items: center; justify-content: center; gap: 10px; padding: 6px 0; color: #b5c2c2; font-size: 9px; font-weight: 450; letter-spacing: .13em; text-transform: uppercase; transition: color .2s; white-space: nowrap; }
+    .footer-control:hover, .footer-control[aria-expanded="true"] { color: #e1eadd; }
+    .footer-separator { width: 1px; height: 12px; background: var(--line); }
+    .sound-bars { height: 15px; width: 17px; display: flex; align-items: center; justify-content: space-between; }
+    .sound-bars i { display: block; width: 1px; height: 3px; background: #b4c5b9; transition: height .4s; }
+    [aria-pressed="true"] .sound-bars i { animation: sound-wave 1.2s ease-in-out infinite alternate; }
+    [aria-pressed="true"] .sound-bars i:nth-child(2) { animation-delay: -.5s; }
+    [aria-pressed="true"] .sound-bars i:nth-child(3) { animation-delay: -.9s; }
+    [aria-pressed="true"] .sound-bars i:nth-child(4) { animation-delay: -.3s; }
+    body.is-paused .sound-bars i { animation-play-state: paused; }
+    .footer-hint { position: absolute; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 9px; color: #7d9299; font-size: 8px; letter-spacing: .13em; text-transform: uppercase; white-space: nowrap; }
+    .footer-hint svg { opacity: .65; }
+    .atmosphere-toggle { gap: 13px; }
+    .atmosphere-toggle svg { transition: transform .4s; }
+    .atmosphere-toggle[aria-expanded="true"] svg { transform: rotate(90deg); }
+    .return-button { position: absolute; top: 38px; left: var(--edge); z-index: 7; display: inline-flex; align-items: center; gap: 11px; font-size: 11px; color: #bdcdc6; padding: 8px 0; opacity: 0; visibility: hidden; transform: translateY(8px); transition: opacity .5s .15s, transform .5s .15s, visibility .5s; }
+    body.is-immersive .intro { opacity: 0; transform: translateY(-14px); pointer-events: none; }
+    body.is-immersive .site-header { opacity: 0; transform: translateY(-8px); pointer-events: none; animation: none; }
+    body.is-immersive .return-button { opacity: 1; visibility: visible; transform: translateY(0); }
+    body.is-immersive .scene-footer { opacity: .55; }
+    body.is-immersive .scene-footer:hover, body.is-immersive .scene-footer:focus-within { opacity: 1; }
+    .atmosphere-panel { position: absolute; z-index: 10; right: var(--edge); bottom: 98px; width: 300px; max-height: calc(100dvh - 125px); overflow-y: auto; padding: 26px; border: 1px solid rgba(166, 197, 184, .18); background: rgba(9, 19, 23, .94); backdrop-filter: blur(22px); box-shadow: 0 16px 80px #0004; animation: panel-in .3s ease both; }
+    .panel-top { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 26px; }
+    .panel-top h2 { font-family: var(--serif); font-size: 28px; font-weight: 400; letter-spacing: -.02em; margin: 0; }
+    .panel-top .icon-button { width: 20px; height: 24px; }
+    .slider-field { margin: 0 0 22px; }
+    .slider-label { display: flex; justify-content: space-between; margin-bottom: 13px; color: #b6c4c3; font-size: 10px; }
+    .slider-label output { font-variant-numeric: tabular-nums; color: #819c8e; font-size: 9px; }
+    input[type="range"] { --progress: 50%; -webkit-appearance: none; appearance: none; display: block; width: 100%; height: 18px; margin: 0; border-radius: 0; background: transparent; cursor: pointer; }
+    input[type="range"]::-webkit-slider-runnable-track { height: 2px; background: linear-gradient(to right, #95b99c var(--progress), #2b3839 var(--progress)); }
+    input[type="range"]::-moz-range-track { height: 2px; background: linear-gradient(to right, #95b99c var(--progress), #2b3839 var(--progress)); }
+    input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 9px; height: 9px; margin-top: -3.5px; background: #c7d7c5; border-radius: 50%; border: 0; box-shadow: 0 0 0 4px #c7d7c509; }
+    input[type="range"]::-moz-range-thumb { width: 9px; height: 9px; background: #c7d7c5; border-radius: 50%; border: 0; }
+    .reset-button { display: flex; align-items: center; gap: 8px; margin-top: 29px; padding: 0; color: #8ca198; font-size: 9px; transition: color .2s; }
+    .reset-button:hover { color: #d7e3d6; }
+    .story-dialog { position: fixed; inset: 0; width: min(520px, calc(100vw - 36px)); max-height: calc(100dvh - 40px); overflow-y: auto; margin: auto; padding: 48px; background: #0d171b; color: var(--paper); border: 1px solid #6f8d7c40; box-shadow: 0 30px 150px #0008; }
+    .story-dialog[open] { animation: panel-in .4s both; }
+    .story-dialog::backdrop { background: #02090cc7; backdrop-filter: blur(12px); }
+    .dialog-close { position: absolute; top: 18px; right: 18px; }
+    .story-kicker { color: #93ae9d; text-transform: uppercase; font-size: 8px; letter-spacing: .22em; margin: 0 0 23px; }
+    .story-dialog h2 { font: 400 54px/.97 var(--serif); letter-spacing: -.025em; margin: 0 0 26px; }
+    .story-dialog h2 em { color: #bed2bc; font-weight: 400; }
+    .story-body { color: #a5b6b8; font-size: 12px; line-height: 1.95; }
+    .story-dialog blockquote { margin: 27px 0 9px; font: italic 26px/1.3 var(--serif); color: #c8d7c7; }
+    .story-dialog cite { color: #7e9692; font: normal 8px var(--sans); letter-spacing: .1em; text-transform: uppercase; }
+    .render-note { margin: 28px 0 0; padding-top: 22px; border-top: 1px solid var(--line); color: #829993; font-size: 9px; line-height: 1.8; }
+    .keyboard-hints { display: flex; flex-wrap: wrap; gap: 17px; margin-top: 15px; font-size: 8px; color: #7d9392; }
+    .keyboard-hints kbd { font: inherit; color: #c3d0c6; margin-right: 4px; }
+    .story-dialog .enter-button { margin-top: 27px; animation: none; }
+    .toast { position: fixed; z-index: 30; left: 50%; bottom: 99px; width: max-content; max-width: calc(100vw - 44px); transform: translate(-50%, 8px); padding: 11px 17px; border: 1px solid #8dac9c33; background: #0b171bf0; color: #c3d2ca; font-size: 11px; line-height: 1.5; text-align: center; opacity: 0; pointer-events: none; transition: opacity .3s, transform .3s; }
+    .toast.visible { opacity: 1; transform: translate(-50%, 0); }
+    @keyframes rise-in { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes panel-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes sound-wave { from { height: 3px; } to { height: 13px; } }
+    @media (min-width: 1700px) { .intro-copy { font-size: 14px; } .enter-button { font-size: 12px; min-height: 50px; min-width: 197px; } .eyebrow { font-size: 10px; } .wordmark { font-size: 11px; } }
+    @media (max-width: 900px) { .intro { left: 8%; top: 27%; } h1 { font-size: 93px; } .footer-hint { display: none; } .navigation { gap: 27px; } .intro-copy { font-size: 11px; } }
+    @media (max-width: 600px) {
+      .site-header { padding-top: 26px; }
+      .wordmark { font-size: 8px; gap: 9px; letter-spacing: .16em; }
+      .brand-mark { width: 21px; height: 25px; }
+      .navigation { gap: 22px; }
+      .nav-item { font-size: 10px; }
+      .nav-item.active, .nav-divider { display: none; }
+      .navigation .icon-button { margin-left: -4px; }
+      .navigation .icon-button svg { width: 14px; }
+      .intro { left: var(--edge); top: 24%; max-width: calc(100vw - 46px); }
+      .eyebrow { font-size: 7px; letter-spacing: .18em; margin-bottom: 22px; gap: 9px; }
+      .eyebrow::before { width: 17px; }
+      h1 { font-size: clamp(75px, 18vw, 104px); margin-bottom: 24px; }
+      .intro-copy { font-size: 10px; line-height: 1.9; }
+      .enter-button { margin-top: 25px; min-height: 43px; min-width: 167px; font-size: 10px; padding: 0 16px; }
+      .scene-footer { bottom: 22px; padding-top: 18px; gap: 10px; }
+      .playback-controls { gap: 17px; }
+      .footer-control { font-size: 8px; gap: 7px; letter-spacing: .08em; }
+      .footer-separator { display: none; }
+      .atmosphere-toggle { gap: 9px; }
+      .atmosphere-panel { bottom: 85px; width: min(300px, calc(100vw - 50px)); }
+      .return-button { top: 25px; }
+      .story-dialog { padding: 36px 28px; }
+      .story-dialog h2 { font-size: 48px; }
+      .toast { bottom: 83px; font-size: 10px; }
+    }
+    @media (max-height: 680px) and (min-width: 601px) { .site-header { padding-top: 23px; } .intro { top: 22%; } h1 { font-size: 80px; margin-bottom: 20px; } .eyebrow { margin-bottom: 17px; } .enter-button { margin-top: 19px; min-height: 41px; } .scene-footer { bottom: 20px; padding-top: 15px; } }
+    @media (max-height: 580px) { .intro { top: 21%; } h1 { font-size: 66px; } .eyebrow { margin-bottom: 15px; } .intro-copy { font-size: 10px; } .enter-button { margin-top: 17px; min-height: 38px; } .atmosphere-panel { bottom: 75px; padding: 20px; } .panel-top { margin-bottom: 19px; } .slider-field { margin-bottom: 18px; } }
+    @media (max-height: 480px) and (min-width: 600px) { .intro { top: 23%; } .eyebrow { margin-bottom: 12px; font-size: 7px; } h1 { font-size: 56px; margin-bottom: 15px; } h1 span, h1 em { display: inline; } h1 em { margin-left: .16em; } .intro-copy { font-size: 9px; line-height: 1.7; } .enter-button { min-height: 34px; margin-top: 15px; } }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition-duration: .01ms !important; } }
+  </style>
+</head>
+<body>
+  <canvas id="preview" aria-hidden="true"></canvas>
+  <div id="world" role="img" tabindex="-1" aria-label="A dark, fog-covered bay. A distant green beacon casts a shimmering reflection over gently moving midnight-blue water."></div>
+  <div class="scene-shade" aria-hidden="true"></div>
+  <div class="grain" aria-hidden="true"></div>
+
+  <header class="site-header" id="site-header">
+    <a href="#experience" class="wordmark" id="home-link" aria-label="The Green Light, home">
+      <svg class="brand-mark" viewBox="0 0 28 34" fill="none" aria-hidden="true"><path d="M14 1v7M14 26v7M2 17h6M20 17h6" stroke="currentColor" stroke-width=".7"/><path d="M14 7 23 17 14 27 5 17 14 7Z" stroke="currentColor" stroke-width=".7"/><path d="M14 11v12" stroke="currentColor" stroke-width=".7"/><circle cx="14" cy="17" r="2" fill="currentColor"/></svg>
+      <span>THE GREEN LIGHT</span>
+    </a>
+    <nav class="navigation" aria-label="Main navigation">
+      <button class="nav-item active" id="experience-nav" aria-current="page">The experience</button>
+      <button class="nav-item" id="story-open" aria-haspopup="dialog">The story</button>
+      <span class="nav-divider" aria-hidden="true"></span>
+      <button class="icon-button" id="fullscreen-button" aria-label="Enter full screen" title="Full screen (F)">
+        <svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M7 3H3v4m10-4h4v4M3 13v4h4m10-4v4h-4" stroke="currentColor" stroke-width="1.1"/></svg>
+      </button>
+    </nav>
+  </header>
+
+  <main id="experience">
+    <section class="intro" id="intro" aria-labelledby="scene-title">
+      <p class="eyebrow">AN INTERACTIVE REVERIE</p>
+      <h1 id="scene-title"><span>The green</span><em>light.</em></h1>
+      <p class="intro-copy">Across the dark water, a light still burns.<br>Some things are always just out of reach.</p>
+      <button class="enter-button" id="enter-button">
+        <span>Enter the scene</span>
+        <svg width="19" height="14" viewBox="0 0 22 16" fill="none" aria-hidden="true"><path d="M1 8h18m-6-6 6 6-6 6" stroke="currentColor" stroke-width="1"/></svg>
+      </button>
+    </section>
+    <button class="return-button" id="return-button" tabindex="-1">
+      <svg width="19" height="14" viewBox="0 0 22 16" fill="none" aria-hidden="true"><path d="M21 8H3m6-6L3 8l6 6" stroke="currentColor" stroke-width="1"/></svg>
+      <span>Back to the experience</span>
+    </button>
+  </main>
+
+  <aside class="atmosphere-panel" id="atmosphere-panel" aria-labelledby="atmosphere-title" hidden>
+    <div class="panel-top">
+      <h2 id="atmosphere-title">The atmosphere</h2>
+      <button class="icon-button" id="atmosphere-close" aria-label="Close atmosphere controls"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="m3 3 10 10M13 3 3 13" stroke="currentColor"/></svg></button>
+    </div>
+    <div class="slider-field">
+      <label class="slider-label" for="fog"><span>Veil of fog</span><output id="fog-value" for="fog">65%</output></label>
+      <input type="range" id="fog" min="0" max="100" value="65" style="--progress:65%" aria-valuetext="65 percent">
+    </div>
+    <div class="slider-field">
+      <label class="slider-label" for="motion"><span>Water movement</span><output id="motion-value" for="motion">35%</output></label>
+      <input type="range" id="motion" min="0" max="100" value="35" style="--progress:35%" aria-valuetext="35 percent">
+    </div>
+    <div class="slider-field">
+      <label class="slider-label" for="glow"><span>Beacon glow</span><output id="glow-value" for="glow">70%</output></label>
+      <input type="range" id="glow" min="0" max="100" value="70" style="--progress:70%" aria-valuetext="70 percent">
+    </div>
+    <button class="reset-button" id="reset-button"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3 6a5 5 0 1 1 .3 4M3 2v4h4" stroke="currentColor" stroke-width="1"/></svg>Restore the quiet</button>
+  </aside>
+
+  <footer class="scene-footer">
+    <div class="playback-controls">
+      <button class="footer-control" id="sound-button" aria-pressed="false" aria-label="Enable ambient water sound" title="Ambient sound (M)">
+        <span class="sound-bars" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+        <span id="sound-label">Sound off</span>
+      </button>
+      <span class="footer-separator" aria-hidden="true"></span>
+      <button class="footer-control" id="pause-button" aria-pressed="false" aria-label="Pause the scene" title="Play or pause (Space)">
+        <svg id="pause-icon" width="12" height="13" viewBox="0 0 12 14" fill="none" aria-hidden="true"><path d="M4 2v10M8 2v10" stroke="currentColor" stroke-width="1.3"/></svg>
+        <span id="pause-label">Pause</span>
+      </button>
+    </div>
+    <p class="footer-hint"><svg width="10" height="14" viewBox="0 0 12 17" fill="none" aria-hidden="true"><rect x="1.5" y="1.5" width="9" height="14" rx="4.5" stroke="currentColor" stroke-width=".9"/><path d="M6 4v3" stroke="currentColor" stroke-width=".9"/></svg><span id="scene-hint">Move gently. Stay a while.</span></p>
+    <button class="footer-control atmosphere-toggle" id="atmosphere-toggle" aria-expanded="false" aria-controls="atmosphere-panel">
+      <span>Atmosphere</span>
+      <svg width="15" height="15" viewBox="0 0 18 18" fill="none" aria-hidden="true"><path d="M3 5h12M3 13h12M7 2v6M12 10v6" stroke="currentColor" stroke-width="1"/></svg>
+    </button>
+  </footer>
+
+  <dialog class="story-dialog" id="story-dialog" aria-labelledby="story-title">
+    <button class="icon-button dialog-close" id="story-close" aria-label="Close the story"><svg width="16" height="16" viewBox="0 0 18 18" fill="none" aria-hidden="true"><path d="m4 4 10 10M14 4 4 14" stroke="currentColor"/></svg></button>
+    <p class="story-kicker">A study in distance & desire</p>
+    <h2 id="story-title">So close.<br><em>So far away.</em></h2>
+    <p class="story-body">At the end of a dock, across a dark and silent bay, a single green light holds everything Gatsby cannot reach.</p>
+    <p class="story-body" style="margin-top:14px">Inspired by F. Scott Fitzgerald's <i>The Great Gatsby</i> and its 2013 film adaptation, this interactive reverie invites you to stand at the water's edge. There is nowhere to go. Nothing to do. Just a light, and the distance between.</p>
+    <blockquote>&ldquo;Gatsby believed in the green light.&rdquo;</blockquote>
+    <cite>F. Scott Fitzgerald, The Great Gatsby, 1925</cite>
+    <p class="render-note" id="render-note">Rendered in real time with Three.js. Procedural water, exponential fog, and a single luminous point across the bay. Headphones recommended.</p>
+    <div class="keyboard-hints" aria-label="Keyboard shortcuts"><span><kbd>Space</kbd> Pause</span><span><kbd>M</kbd> Sound</span><span><kbd>F</kbd> Full screen</span><span><kbd>Esc</kbd> Return</span></div>
+    <button class="enter-button" id="story-return"><span>Back to the bay</span><svg width="18" height="14" viewBox="0 0 22 16" fill="none" aria-hidden="true"><path d="M1 8h18m-6-6 6 6-6 6" stroke="currentColor"/></svg></button>
+  </dialog>
+  <div class="toast" id="toast" role="status"></div>
+  <div class="sr-only" id="announcement" aria-live="polite"></div>
+
+  <script>
+    (() => {
+      'use strict';
+      const $ = (id) => document.getElementById(id);
+      const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const defaults = { fog: 65, motion: 35, glow: 70 };
+      const state = { ...defaults, playing: !reducedMotion, sound: false, immersive: false, reducedMotion, webgl: false, pointer: { x: 0, y: 0 } };
+      let toastTimer, audioContext, masterGain, audioBusy = false;
+      let previewFrame = 0, previewTime = 0, previewWaterTime = 0, previewLast = 0;
+      const preview = $('preview');
+      const ctx = preview.getContext('2d');
+      let previewWidth = 0, previewHeight = 0, ripples = [], reflectionRipples = [];
+      let skyTexture;
+
+      function announce(message) { $('announcement').textContent = message; }
+      function notify(message) {
+        $('toast').textContent = message;
+        $('toast').classList.add('visible');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => $('toast').classList.remove('visible'), 4300);
+        announce(message);
+      }
+      function emitChange() { window.dispatchEvent(new CustomEvent('scenechange', { detail: state })); }
+
+      function setImmersive(value) {
+        state.immersive = value;
+        document.body.classList.toggle('is-immersive', value);
+        $('intro').inert = value;
+        $('site-header').inert = value;
+        $('return-button').tabIndex = value ? 0 : -1;
+        $('scene-hint').textContent = value ? 'Nothing to do. Nowhere to be.' : 'Move gently. Stay a while.';
+        setAtmosphere(false, false);
+        (value ? $('world') : $('enter-button')).focus({ preventScroll: true });
+        announce(value ? 'Immersive view. Press Escape to return.' : 'Returned to the experience.');
+        emitChange();
+      }
+
+      function updatePlaybackUI() {
+        document.body.classList.toggle('is-paused', !state.playing);
+        $('pause-label').textContent = state.playing ? 'Pause' : 'Play';
+        $('pause-button').setAttribute('aria-pressed', String(!state.playing));
+        $('pause-button').setAttribute('aria-label', state.playing ? 'Pause the scene' : 'Play the scene');
+        $('pause-icon').innerHTML = state.playing
+          ? '<path d="M4 2v10M8 2v10" stroke="currentColor" stroke-width="1.3"/>'
+          : '<path d="m3 2 7 5-7 5V2Z" stroke="currentColor" stroke-width="1"/>';
+      }
+      function togglePlayback() {
+        state.playing = !state.playing;
+        updatePlaybackUI();
+        updateAudioGain();
+        announce(state.playing ? 'The scene is playing.' : 'The scene is paused.');
+        emitChange();
+      }
+      function setAtmosphere(open, focus = true) {
+        $('atmosphere-panel').hidden = !open;
+        $('atmosphere-toggle').setAttribute('aria-expanded', String(open));
+        if (focus) (open ? $('fog') : $('atmosphere-toggle')).focus({ preventScroll: true });
+      }
+      function syncAtmosphere() {
+        Object.keys(defaults).forEach((key) => {
+          $(key).value = state[key];
+          $(key).style.setProperty('--progress', state[key] + '%');
+          $(key).setAttribute('aria-valuetext', state[key] + ' percent');
+          $(key + '-value').value = state[key] + '%';
+        });
+        emitChange();
+      }
+
+      async function toggleFullscreen() {
+        try {
+          if (document.fullscreenElement) await document.exitFullscreen();
+          else if (document.documentElement.requestFullscreen) await document.documentElement.requestFullscreen();
+          else notify('Full screen is not supported by this browser. Enter the scene for an uncluttered view.');
+        } catch (error) { notify('Full screen is unavailable here. Try opening the page in its own tab.'); }
+      }
+
+      // Filtered, slowly modulated noise makes a seamless shoreline without an audio download.
+      async function initializeAudio() {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContextClass) throw new Error('Web Audio is unavailable.');
+        audioContext = new AudioContextClass();
+        masterGain = audioContext.createGain();
+        masterGain.gain.value = 0;
+        masterGain.connect(audioContext.destination);
+        const bufferLength = audioContext.sampleRate * 8;
+        const buffer = audioContext.createBuffer(2, bufferLength, audioContext.sampleRate);
+        for (let channel = 0; channel < 2; channel++) {
+          const samples = buffer.getChannelData(channel);
+          let brown = 0;
+          for (let i = 0; i < bufferLength; i++) {
+            brown = (brown + (Math.random() * 2 - 1) * .035) / 1.035;
+            samples[i] = brown * 3.2;
+          }
+          const seam = Math.min(4000, bufferLength / 4);
+          for (let i = 0; i < seam; i++) {
+            const mix = i / seam;
+            samples[bufferLength - seam + i] = samples[bufferLength - seam + i] * (1 - mix) + samples[i] * mix;
+          }
+        }
+        const source = audioContext.createBufferSource();
+        source.buffer = buffer;
+        source.loop = true;
+        source.loopStart = Math.min(4000, bufferLength / 4) / audioContext.sampleRate;
+        source.loopEnd = buffer.duration;
+        const lowPass = audioContext.createBiquadFilter();
+        lowPass.type = 'lowpass';
+        lowPass.frequency.value = 650;
+        lowPass.Q.value = .55;
+        const highPass = audioContext.createBiquadFilter();
+        highPass.type = 'highpass';
+        highPass.frequency.value = 65;
+        const tideGain = audioContext.createGain();
+        tideGain.gain.value = .44;
+        source.connect(lowPass).connect(highPass).connect(tideGain).connect(masterGain);
+        const tide = audioContext.createOscillator();
+        const modulation = audioContext.createGain();
+        tide.frequency.value = .075;
+        modulation.gain.value = .16;
+        tide.connect(modulation).connect(tideGain.gain);
+        source.start();
+        tide.start();
+        await audioContext.resume();
+      }
+      function updateAudioGain() {
+        if (!audioContext || !masterGain) return;
+        const audible = state.sound && state.playing && !document.hidden;
+        masterGain.gain.setTargetAtTime(audible ? .55 : 0, audioContext.currentTime, .35);
+      }
+      async function toggleSound() {
+        if (audioBusy) return;
+        audioBusy = true;
+        try {
+          if (!audioContext) await initializeAudio();
+          if (audioContext.state === 'suspended') await audioContext.resume();
+          state.sound = !state.sound;
+          $('sound-button').setAttribute('aria-pressed', String(state.sound));
+          $('sound-button').setAttribute('aria-label', state.sound ? 'Mute ambient water sound' : 'Enable ambient water sound');
+          $('sound-label').textContent = state.sound ? 'Sound on' : 'Sound off';
+          updateAudioGain();
+          announce(state.sound ? 'Ambient sound enabled.' : 'Ambient sound muted.');
+          if (state.sound && !state.playing) notify('Sound is on. Press Play to resume the water and ambience.');
+        } catch (error) { notify('Ambient sound could not start. Please try again in a supported browser.'); }
+        finally { audioBusy = false; }
+      }
+
+      $('enter-button').addEventListener('click', () => setImmersive(true));
+      $('return-button').addEventListener('click', () => setImmersive(false));
+      $('experience-nav').addEventListener('click', () => setImmersive(true));
+      $('home-link').addEventListener('click', (event) => { event.preventDefault(); setImmersive(false); });
+      $('pause-button').addEventListener('click', togglePlayback);
+      $('sound-button').addEventListener('click', toggleSound);
+      $('fullscreen-button').addEventListener('click', toggleFullscreen);
+      $('atmosphere-toggle').addEventListener('click', () => setAtmosphere($('atmosphere-panel').hidden));
+      $('atmosphere-close').addEventListener('click', () => setAtmosphere(false));
+      $('reset-button').addEventListener('click', () => { Object.assign(state, defaults); syncAtmosphere(); announce('Atmosphere restored.'); });
+      Object.keys(defaults).forEach((key) => $(key).addEventListener('input', (event) => { state[key] = Number(event.target.value); syncAtmosphere(); }));
+      $('story-open').addEventListener('click', () => { setAtmosphere(false, false); $('story-dialog').showModal(); });
+      ['story-close', 'story-return'].forEach((id) => $(id).addEventListener('click', () => $('story-dialog').close()));
+      $('story-dialog').addEventListener('click', (event) => {
+        if (event.target !== $('story-dialog')) return;
+        const bounds = $('story-dialog').getBoundingClientRect();
+        if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) $('story-dialog').close();
+      });
+      document.addEventListener('pointerdown', (event) => {
+        if (!$('atmosphere-panel').hidden && !$('atmosphere-panel').contains(event.target) && !$('atmosphere-toggle').contains(event.target)) setAtmosphere(false, false);
+      });
+      document.addEventListener('fullscreenchange', () => {
+        $('fullscreen-button').setAttribute('aria-label', document.fullscreenElement ? 'Exit full screen' : 'Enter full screen');
+        $('fullscreen-button').title = document.fullscreenElement ? 'Exit full screen (F)' : 'Full screen (F)';
+      });
+      document.addEventListener('visibilitychange', updateAudioGain);
+      document.addEventListener('keydown', (event) => {
+        const editing = /^(INPUT|TEXTAREA|SELECT)$/.test(event.target.tagName) || event.target.isContentEditable;
+        if (event.key === 'Escape') {
+          if ($('story-dialog').open) return;
+          if (!$('atmosphere-panel').hidden) setAtmosphere(false);
+          else if (state.immersive) setImmersive(false);
+          return;
+        }
+        if (editing || $('story-dialog').open || event.altKey || event.ctrlKey || event.metaKey || event.repeat) return;
+        if (event.code === 'Space' && !/^(BUTTON|A)$/.test(event.target.tagName)) { event.preventDefault(); togglePlayback(); }
+        if (event.key.toLowerCase() === 'm') toggleSound();
+        if (event.key.toLowerCase() === 'f') toggleFullscreen();
+      });
+      document.addEventListener('pointermove', (event) => {
+        if (event.pointerType !== 'mouse') return;
+        state.pointer.x = event.clientX / innerWidth * 2 - 1;
+        state.pointer.y = event.clientY / innerHeight * 2 - 1;
+      }, { passive: true });
+      document.documentElement.addEventListener('pointerleave', () => { state.pointer.x = 0; state.pointer.y = 0; });
+
+      // This procedural preview is also a usable low-power fallback if WebGL or the CDN is unavailable.
+      function makePreview() {
+        if (!ctx) return;
+        previewWidth = innerWidth;
+        previewHeight = innerHeight;
+        const pixelRatio = Math.min(devicePixelRatio || 1, 1.5);
+        preview.width = Math.round(previewWidth * pixelRatio);
+        preview.height = Math.round(previewHeight * pixelRatio);
+        ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+        let seed = 137;
+        const random = () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
+        ripples = [];
+        reflectionRipples = [];
+        const horizon = previewHeight * .497;
+        for (let row = 0; row < 150; row++) {
+          const depth = Math.pow(row / 150, 1.55);
+          const y = horizon + depth * (previewHeight - horizon);
+          const length = 6 + depth * 66;
+          for (let x = -length; x < previewWidth + length; x += length * (.45 + random() * 1.6)) {
+            ripples.push({ x, y, depth, length: length * (.3 + random() * 1.7), alpha: .035 + random() * .16, phase: random() * Math.PI * 2 });
+          }
+          for (let i = 0; i < 3; i++) reflectionRipples.push({ y, depth, offset: (random() - .5) * 2, length: .12 + random() * .9, alpha: .06 + random() * .5, phase: random() * Math.PI * 2 });
+        }
+        skyTexture = document.createElement('canvas');
+        skyTexture.width = 180;
+        skyTexture.height = 120;
+        const skyCtx = skyTexture.getContext('2d');
+        const image = skyCtx.createImageData(180, 120);
+        for (let i = 0; i < image.data.length; i += 4) {
+          const value = Math.floor(random() * 110);
+          image.data[i] = value * .65;
+          image.data[i + 1] = value * .85;
+          image.data[i + 2] = value;
+          image.data[i + 3] = 13;
+        }
+        skyCtx.putImageData(image, 0, 0);
+        paintPreview(previewTime);
+      }
+
+      function paintPreview(time) {
+        if (!ctx) return;
+        const w = previewWidth, h = previewHeight;
+        const horizon = h * .497;
+        const bx = w * (w < 600 ? .78 : .735), by = h * .485;
+        const pulse = (1 + Math.sin(time * .7) * .1) * (state.glow / 100 * 1.12 + .2);
+        const fogAmount = state.fog / 100;
+        const sky = ctx.createLinearGradient(0, 0, 0, horizon);
+        sky.addColorStop(0, '#080e15');
+        sky.addColorStop(.65, '#101b23');
+        sky.addColorStop(1, '#0a141a');
+        ctx.fillStyle = sky;
+        ctx.fillRect(0, 0, w, h);
+        ctx.drawImage(skyTexture, 0, 0, w, h);
+        ctx.save();
+        ctx.scale(1, .24);
+        const mist = ctx.createRadialGradient(w * .68, horizon / .24, 0, w * .68, horizon / .24, w * .55);
+        mist.addColorStop(0, 'rgba(40,62,69,.12)');
+        mist.addColorStop(1, 'rgba(10,20,28,0)');
+        ctx.fillStyle = mist;
+        ctx.fillRect(0, 0, w, h / .24);
+        ctx.restore();
+        const water = ctx.createLinearGradient(0, horizon, 0, h);
+        water.addColorStop(0, '#0b171e');
+        water.addColorStop(.4, '#09141c');
+        water.addColorStop(1, '#050c12');
+        ctx.fillStyle = water;
+        ctx.fillRect(0, horizon, w, h - horizon);
+        for (const ripple of ripples) {
+          const y = ripple.y + Math.sin(previewWaterTime * .3 + ripple.phase) * ripple.depth * 2;
+          const x = ripple.x + Math.cos(previewWaterTime * .18 + ripple.phase) * ripple.depth * 4;
+          ctx.strokeStyle = 'rgba(60,85,104,' + ripple.alpha * (1 - fogAmount * .3) + ')';
+          ctx.lineWidth = .45 + ripple.depth * .8;
+          ctx.beginPath();
+          ctx.moveTo(x, y);
+          ctx.bezierCurveTo(x + ripple.length * .3, y - ripple.depth * 1.3, x + ripple.length * .68, y + ripple.depth * .9, x + ripple.length, y);
+          ctx.stroke();
+        }
+        for (const ripple of reflectionRipples) {
+          const spread = 2 + Math.pow(ripple.depth, .85) * w * .047;
+          const wave = Math.sin(previewWaterTime * .34 + ripple.phase);
+          const x = bx + ripple.offset * spread + wave * ripple.depth * 7;
+          const y = ripple.y + wave * ripple.depth * 1.8;
+          const length = spread * ripple.length;
+          const alpha = ripple.alpha * pulse * (1 - ripple.depth * .8) * (1 - Math.abs(ripple.offset) * .65);
+          ctx.strokeStyle = 'rgba(18,201,87,' + alpha + ')';
+          ctx.lineWidth = .6 + ripple.depth * 1.5;
+          ctx.beginPath();
+          ctx.moveTo(x - length * .5, y);
+          ctx.quadraticCurveTo(x, y - ripple.depth * 1.5, x + length * .5, y);
+          ctx.stroke();
+        }
+        const veil = ctx.createLinearGradient(0, horizon - 20, 0, horizon + h * .2);
+        veil.addColorStop(0, 'rgba(0,4,7,' + fogAmount * .28 + ')');
+        veil.addColorStop(1, 'rgba(0,4,7,0)');
+        ctx.fillStyle = veil;
+        ctx.fillRect(0, horizon - 20, w, h * .23);
+        ctx.save();
+        ctx.globalCompositeOperation = 'screen';
+        const radius = Math.max(80, w * .095);
+        const halo = ctx.createRadialGradient(bx, by, 0, bx, by, radius);
+        halo.addColorStop(0, 'rgba(0,240,61,' + .16 * pulse + ')');
+        halo.addColorStop(.09, 'rgba(0,220,62,' + .08 * pulse + ')');
+        halo.addColorStop(.35, 'rgba(0,156,55,' + .035 * pulse + ')');
+        halo.addColorStop(1, 'rgba(0,100,44,0)');
+        ctx.fillStyle = halo;
+        ctx.fillRect(bx - radius, by - radius, radius * 2, radius * 2);
+        ctx.shadowColor = '#00ff41';
+        ctx.shadowBlur = 15 * pulse;
+        ctx.fillStyle = '#51ff87';
+        ctx.beginPath();
+        ctx.arc(bx, by, 1.7 + pulse * .15, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+
+      function previewLoop(now) {
+        if (state.webgl) { previewFrame = 0; previewLast = 0; return; }
+        previewFrame = requestAnimationFrame(previewLoop);
+        if (document.hidden) { previewLast = now; return; }
+        if (now - previewLast < 65) return;
+        const delta = previewLast ? Math.min((now - previewLast) / 1000, .1) : 0;
+        previewLast = now;
+        if (state.playing) {
+          previewTime += delta;
+          previewWaterTime += delta * state.motion / 35;
+        }
+        paintPreview(previewTime);
+      }
+
+      function setRendererStatus(mode) {
+        state.webgl = mode === 'webgl';
+        if (!state.webgl && !previewFrame) previewFrame = requestAnimationFrame(previewLoop);
+        $('render-note').textContent = state.webgl
+          ? 'Rendered in real time with Three.js. Procedural water, exponential fog, and a single luminous point across the bay. Headphones recommended.'
+          : 'You are viewing the lightweight, procedurally drawn version. WebGL is unavailable in this browser or the 3D library could not load. Atmosphere, playback, and sound still work.';
+      }
+
+      const grainCanvas = document.createElement('canvas');
+      grainCanvas.width = grainCanvas.height = 160;
+      const grainContext = grainCanvas.getContext('2d');
+      if (grainContext) {
+        const grain = grainContext.createImageData(160, 160);
+        for (let i = 0; i < grain.data.length; i += 4) {
+          grain.data[i] = grain.data[i + 1] = grain.data[i + 2] = Math.random() * 255;
+          grain.data[i + 3] = 255;
+        }
+        grainContext.putImageData(grain, 0, 0);
+        document.querySelector('.grain').style.backgroundImage = 'url(' + grainCanvas.toDataURL() + ')';
+      }
+      window.addEventListener('resize', makePreview, { passive: true });
+      updatePlaybackUI();
+      makePreview();
+      previewFrame = requestAnimationFrame(previewLoop);
+      window.GreenLight = { state, setRendererStatus, notify, announce };
+    })();
+  </script>
+
+  <script type="module">
+    const app = window.GreenLight;
+    let THREE, EffectComposer, RenderPass, UnrealBloomPass, ShaderPass, OutputPass;
+    let renderer, scene, camera, water, beacon, beaconLight, halo, outerHalo, sky;
+    let bloomComposer, finalComposer, bloomPass, combinePass;
+    let simulationTime = 0, waterTime = 0, lastTime = 0, frameId;
+    let contextLost = false, shaderFailed = false, needsRender = true;
+    const lookTarget = { x: 0, y: 1.8 };
+    const BLOOM_LAYER = 1;
+
+    async function initialize() {
+      try {
+        [THREE, { EffectComposer }, { RenderPass }, { UnrealBloomPass }, { ShaderPass }, { OutputPass }] = await Promise.all([
+          import('three'),
+          import('three/addons/postprocessing/EffectComposer.js'),
+          import('three/addons/postprocessing/RenderPass.js'),
+          import('three/addons/postprocessing/UnrealBloomPass.js'),
+          import('three/addons/postprocessing/ShaderPass.js'),
+          import('three/addons/postprocessing/OutputPass.js')
+        ]);
+        renderer = new THREE.WebGLRenderer({ antialias: false, alpha: false, powerPreference: 'high-performance' });
+        if (!renderer.extensions.has('EXT_color_buffer_float')) throw new Error('Floating-point render targets are unavailable.');
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+        renderer.setSize(innerWidth, innerHeight);
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.1;
+        renderer.outputColorSpace = THREE.SRGBColorSpace;
+        renderer.domElement.className = 'world-canvas';
+        renderer.domElement.setAttribute('aria-hidden', 'true');
+        renderer.debug.onShaderError = (gl, program, vertexShader, fragmentShader) => {
+          shaderFailed = true;
+          console.error('The Green Light: shader compilation failed.', gl.getProgramInfoLog(program), gl.getShaderInfoLog(vertexShader), gl.getShaderInfoLog(fragmentShader));
+        };
+        document.getElementById('world').appendChild(renderer.domElement);
+        scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x000000);
+        scene.fog = new THREE.FogExp2(0x000000, .01145);
+        camera = new THREE.PerspectiveCamera(48, innerWidth / innerHeight, .1, 2400);
+        camera.position.set(0, 3.1, 18);
+        camera.lookAt(0, 1.8, -160);
+        createSky();
+        setupLighting();
+        createWater();
+        setupPostProcessing();
+        positionBeacon();
+        applyAtmosphere();
+        window.addEventListener('resize', handleResize, { passive: true });
+        window.addEventListener('scenechange', applyAtmosphere);
+        renderer.domElement.addEventListener('webglcontextlost', (event) => {
+          event.preventDefault();
+          contextLost = true;
+          renderer.domElement.classList.remove('is-ready');
+          app.setRendererStatus('fallback');
+          app.notify('The 3D scene was interrupted. A lightweight bay is keeping your place.');
+        });
+        renderer.domElement.addEventListener('webglcontextrestored', () => {
+          contextLost = false;
+          lastTime = performance.now();
+          applyAtmosphere();
+          handleResize();
+          app.setRendererStatus('webgl');
+          renderer.domElement.classList.add('is-ready');
+        });
+        renderScene();
+        if (shaderFailed) throw new Error('A scene shader could not compile.');
+        app.setRendererStatus('webgl');
+        renderer.domElement.classList.add('is-ready');
+        frameId = requestAnimationFrame(animate);
+      } catch (error) {
+        if (frameId) cancelAnimationFrame(frameId);
+        window.removeEventListener('resize', handleResize);
+        window.removeEventListener('scenechange', applyAtmosphere);
+        if (bloomComposer) bloomComposer.dispose();
+        if (bloomPass) bloomPass.dispose();
+        if (finalComposer) finalComposer.dispose();
+        if (renderer) { renderer.domElement.remove(); renderer.dispose(); }
+        app.setRendererStatus('fallback');
+        app.notify('A quieter rendering of the bay is active. WebGL is unavailable here.');
+        console.warn('The Green Light is using its 2D fallback:', error);
+      }
+    }
+
+    function createSky() {
+      const material = new THREE.ShaderMaterial({
+        uniforms: { uTime: { value: 0 }, uAspect: { value: innerWidth / innerHeight }, uFog: { value: .65 } },
+        vertexShader: `
+          varying vec2 vUv;
+          void main() {
+            vUv = uv;
+            gl_Position = vec4(position.xy, 1.0, 1.0);
+          }
+        `,
+        fragmentShader: `
+          uniform float uTime;
+          uniform float uAspect;
+          uniform float uFog;
+          varying vec2 vUv;
+          float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+          float noise(vec2 p) {
+            vec2 i = floor(p), f = fract(p);
+            f = f * f * (3.0 - 2.0 * f);
+            return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), f.x),
+              mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), f.x), f.y);
+          }
+          float fbm(vec2 p) {
+            float value = 0.0, amplitude = 0.5;
+            for (int i = 0; i < 4; i++) {
+              value += amplitude * noise(p);
+              p = mat2(1.6, 1.2, -1.2, 1.6) * p + 4.7;
+              amplitude *= 0.5;
+            }
+            return value;
+          }
+          void main() {
+            vec2 p = vec2(vUv.x * uAspect * 2.1, vUv.y * 5.7);
+            float cloud = fbm(p + vec2(uTime * 0.004, -uTime * 0.001));
+            float secondCloud = fbm(p * 1.7 - vec2(uTime * 0.002, 8.0));
+            float horizon = exp(-pow((vUv.y - 0.51) * 4.8, 2.0));
+            vec3 color = vec3(0.0085, 0.0130, 0.0195);
+            color += vec3(0.0060, 0.0100, 0.0140) * horizon;
+            color *= 0.60 + cloud * 0.65;
+            color += vec3(0.0020, 0.0032, 0.0048) * secondCloud * horizon;
+            color *= 1.0 - exp(-abs(vUv.y - 0.508) * 17.0) * (0.70 + uFog * 0.27);
+            gl_FragColor = vec4(color, 1.0);
+          }
+        `,
+        depthWrite: false,
+        depthTest: false,
+        fog: false
+      });
+      sky = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), material);
+      sky.frustumCulled = false;
+      sky.renderOrder = -1000;
+      scene.add(sky);
+    }
+
+    function setupLighting() {
+      scene.add(new THREE.AmbientLight(0x102338, .12));
+      const material = new THREE.MeshBasicMaterial({ color: new THREE.Color('#00ff41').multiplyScalar(4.5), fog: false });
+      beacon = new THREE.Mesh(new THREE.SphereGeometry(.24, 20, 16), material);
+      // The beacon bypasses black fog and alone enters the bloom render layer.
+      beacon.layers.enable(BLOOM_LAYER);
+      scene.add(beacon);
+      beaconLight = new THREE.PointLight('#00ff41', 45, 450, 1);
+      beacon.add(beaconLight);
+
+      const glowCanvas = document.createElement('canvas');
+      glowCanvas.width = glowCanvas.height = 128;
+      const glowContext = glowCanvas.getContext('2d');
+      const gradient = glowContext.createRadialGradient(64, 64, 0, 64, 64, 64);
+      gradient.addColorStop(0, 'rgba(255,255,255,1)');
+      gradient.addColorStop(.06, 'rgba(255,255,255,.65)');
+      gradient.addColorStop(.2, 'rgba(255,255,255,.19)');
+      gradient.addColorStop(.5, 'rgba(255,255,255,.035)');
+      gradient.addColorStop(1, 'rgba(255,255,255,0)');
+      glowContext.fillStyle = gradient;
+      glowContext.fillRect(0, 0, 128, 128);
+      const map = new THREE.CanvasTexture(glowCanvas);
+      halo = new THREE.Sprite(new THREE.SpriteMaterial({
+        map, color: new THREE.Color('#00ff41').multiplyScalar(.45),
+        transparent: true, opacity: .13, blending: THREE.AdditiveBlending,
+        depthWrite: false, fog: false
+      }));
+      halo.scale.set(48, 48, 1);
+      scene.add(halo);
+      outerHalo = new THREE.Sprite(new THREE.SpriteMaterial({
+        map, color: new THREE.Color('#00b83b').multiplyScalar(.23),
+        transparent: true, opacity: .055, blending: THREE.AdditiveBlending,
+        depthWrite: false, fog: false
+      }));
+      outerHalo.scale.set(110, 69, 1);
+      scene.add(outerHalo);
+    }
+
+    function createWater() {
+      // An exponentially spaced plane keeps fine geometry near the low camera.
+      const columns = innerWidth < 600 ? 128 : 192;
+      const rows = 208;
+      const vertices = [], indices = [];
+      for (let row = 0; row <= rows; row++) {
+        const z = 28 - (Math.exp(row / rows * 5.4) - 1) * 8.2;
+        const halfWidth = 24 + (28 - z) * 1.9;
+        for (let col = 0; col <= columns; col++) vertices.push((col / columns * 2 - 1) * halfWidth, 0, z);
+      }
+      for (let row = 0; row < rows; row++) {
+        for (let col = 0; col < columns; col++) {
+          const a = row * (columns + 1) + col, b = a + columns + 1;
+          indices.push(a, a + 1, b, b, a + 1, b + 1);
+        }
+      }
+      const geometry = new THREE.BufferGeometry();
+      geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+      geometry.setIndex(indices);
+      geometry.computeBoundingSphere();
+      const waveFunctions = `
+        float waveHeight(vec2 p, float t) {
+          return sin(dot(p, vec2(0.085, 0.15)) - t * 0.32) * 0.19
+            + sin(dot(p, vec2(0.21, -0.26)) + t * 0.26) * 0.085
+            + sin(dot(p, vec2(0.49, 0.37)) - t * 0.47) * 0.035;
+        }
+        vec2 waveSlope(vec2 p, float t) {
+          vec2 slope = cos(dot(p, vec2(0.085, 0.15)) - t * 0.32) * 0.19 * vec2(0.085, 0.15);
+          slope += cos(dot(p, vec2(0.21, -0.26)) + t * 0.26) * 0.085 * vec2(0.21, -0.26);
+          slope += cos(dot(p, vec2(0.49, 0.37)) - t * 0.47) * 0.035 * vec2(0.49, 0.37);
+          slope += cos(dot(p, vec2(1.5, 2.2)) - t * 0.72) * 0.010 * vec2(1.5, 2.2);
+          slope += cos(dot(p, vec2(-2.8, 1.0)) + t * 0.60) * 0.005 * vec2(-2.8, 1.0);
+          slope += cos(dot(p, vec2(5.1, 3.6)) - t * 1.05) * 0.0028 * vec2(5.1, 3.6);
+          return slope;
+        }
+      `;
+      const material = new THREE.ShaderMaterial({
+        uniforms: THREE.UniformsUtils.merge([
+          THREE.UniformsLib.fog,
+          { uTime: { value: 0 }, uLightPosition: { value: new THREE.Vector3() }, uIntensity: { value: 1 } }
+        ]),
+        vertexShader: `
+          uniform float uTime;
+          varying vec3 vWorldPosition;
+          #include <fog_pars_vertex>
+          ${waveFunctions}
+          void main() {
+            vec3 p = position;
+            p.y = waveHeight(p.xz, uTime);
+            vec4 worldPosition = modelMatrix * vec4(p, 1.0);
+            vWorldPosition = worldPosition.xyz;
+            vec4 mvPosition = viewMatrix * worldPosition;
+            gl_Position = projectionMatrix * mvPosition;
+            #include <fog_vertex>
+          }
+        `,
+        fragmentShader: `
+          uniform float uTime;
+          uniform vec3 uLightPosition;
+          uniform float uIntensity;
+          varying vec3 vWorldPosition;
+          #include <fog_pars_fragment>
+          ${waveFunctions}
+          float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+          float noise(vec2 p) {
+            vec2 i = floor(p), f = fract(p);
+            f = f * f * (3.0 - 2.0 * f);
+            return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), f.x),
+              mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), f.x), f.y);
+          }
+          void main() {
+            vec2 p = vWorldPosition.xz;
+            vec2 slope = waveSlope(p, uTime);
+            vec3 normal = normalize(vec3(-slope.x, 1.0, -slope.y));
+            vec3 viewDirection = normalize(cameraPosition - vWorldPosition);
+            vec3 lightDirection = normalize(uLightPosition - vWorldPosition);
+            vec3 halfway = normalize(viewDirection + lightDirection);
+            float fresnel = 0.02 + 0.98 * pow(1.0 - max(dot(viewDirection, normal), 0.0), 5.0);
+            float specular = pow(max(dot(normal, halfway), 0.0), 180.0);
+            float crestPhase = p.y * 0.72 + sin(p.x * 0.19 - uTime * 0.13) * 1.7 - uTime * 0.24;
+            float crests = pow(0.5 + 0.5 * sin(crestPhase), 6.0);
+            float detailPhase = p.y * 16.0 + sin(p.x * 1.8 + uTime * 0.15) * 1.5 - uTime * 0.7;
+            float detail = pow(0.5 + 0.5 * sin(detailPhase), 12.0);
+            detail = mix(detail, 0.08, clamp(fwidth(detailPhase) * 0.2, 0.0, 1.0));
+
+            // Black diffuse water is visible only through sky and light reflections.
+            vec3 color = vec3(0.0);
+            color += vec3(0.0070, 0.0148, 0.0250) * (0.6 + crests * 0.9) * (0.42 + fresnel * 0.58);
+            color += vec3(0.0025, 0.0050, 0.0075) * (0.5 + 0.5 * normal.z);
+            color += vec3(0.0040, 0.0080, 0.0130) * detail;
+
+            // A rough-surface reflection lobe extends the point specular into broken, narrow ribbons.
+            float progress = (cameraPosition.z - p.y) / (cameraPosition.z - uLightPosition.z);
+            float reflectionX = mix(cameraPosition.x, uLightPosition.x, progress);
+            float fromLight = max(p.y - uLightPosition.z, 0.0);
+            float width = 0.38 + fromLight * 0.0045;
+            float wobble = sin(p.y * 0.27 - uTime * 0.31) * 0.20 + sin(p.y * 0.93 + uTime * 0.18) * 0.10;
+            float offset = (p.x - reflectionX + wobble) / width;
+            float corridor = exp(-offset * offset * 1.1);
+            float phase = p.y * 2.9 + sin(p.x * 0.9 + uTime * 0.24) * 1.3 - uTime * 0.45;
+            float ribbon = pow(0.5 + 0.5 * sin(phase), 14.0);
+            ribbon = mix(ribbon, 0.08, clamp(fwidth(phase) * 0.17, 0.0, 1.0));
+            float breakup = 0.25 + 0.75 * noise(p * vec2(1.7, 0.9) + uTime * 0.08);
+            float farEdge = smoothstep(uLightPosition.z - 3.0, uLightPosition.z + 8.0, p.y);
+            float falloff = 0.24 + 0.76 * exp(-fromLight * 0.014);
+            float reflection = corridor * ((ribbon * 0.34 + detail * 0.12) * breakup + specular * 0.7) * falloff * farEdge;
+            color += vec3(0.001, 0.68, 0.075) * reflection * uIntensity;
+            color += vec3(0.0, 0.025, 0.004) * corridor * falloff * farEdge * uIntensity;
+            gl_FragColor = vec4(color, 1.0);
+            #include <fog_fragment>
+          }
+        `,
+        fog: true
+      });
+      water = new THREE.Mesh(geometry, material);
+      water.frustumCulled = false;
+      scene.add(water);
+    }
+
+    function setupPostProcessing() {
+      bloomComposer = new EffectComposer(renderer);
+      bloomComposer.setPixelRatio(.8);
+      bloomComposer.setSize(innerWidth, innerHeight);
+      bloomComposer.renderToScreen = false;
+      bloomComposer.addPass(new RenderPass(scene, camera));
+      bloomPass = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 1.65, .85, .32);
+      bloomComposer.addPass(bloomPass);
+
+      finalComposer = new EffectComposer(renderer);
+      finalComposer.addPass(new RenderPass(scene, camera));
+      combinePass = new ShaderPass(new THREE.ShaderMaterial({
+        uniforms: {
+          baseTexture: { value: null },
+          bloomTexture: { value: bloomComposer.renderTarget2.texture }
+        },
+        vertexShader: `
+          varying vec2 vUv;
+          void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }
+        `,
+        fragmentShader: `
+          uniform sampler2D baseTexture;
+          uniform sampler2D bloomTexture;
+          varying vec2 vUv;
+          void main() {
+            vec3 base = texture2D(baseTexture, vUv).rgb;
+            vec3 bloom = texture2D(bloomTexture, vUv).rgb;
+            gl_FragColor = vec4(base + bloom, 1.0);
+          }
+        `
+      }), 'baseTexture');
+      finalComposer.addPass(combinePass);
+      finalComposer.addPass(new OutputPass());
+    }
+
+    function positionBeacon() {
+      const distance = camera.position.z + 145;
+      const screenOffset = innerWidth < 600 ? .56 : .47;
+      const x = Math.tan(THREE.MathUtils.degToRad(camera.fov * .5)) * camera.aspect * distance * screenOffset;
+      beacon.position.set(x, 3.65, -145);
+      halo.position.copy(beacon.position);
+      halo.position.z -= .4;
+      outerHalo.position.copy(beacon.position);
+      outerHalo.position.z -= .8;
+      water.material.uniforms.uLightPosition.value.copy(beacon.position);
+    }
+
+    function applyAtmosphere() {
+      if (!scene || !water) return;
+      needsRender = true;
+      scene.fog.density = .003 + app.state.fog / 100 * .013;
+      sky.material.uniforms.uFog.value = app.state.fog / 100;
+      const intensity = .2 + app.state.glow / 100 * 1.12;
+      bloomPass.strength = .75 + app.state.glow / 100 * 1.35;
+      beacon.material.color.set('#00ff41').multiplyScalar(4.5 * intensity);
+      updateBeacon(intensity);
+    }
+
+    function updateBeacon(intensity = .2 + app.state.glow / 100 * 1.12) {
+      const pulse = 1 + Math.sin(simulationTime * .72) * .09 + Math.sin(simulationTime * .29) * .025;
+      beaconLight.intensity = 45 * intensity * pulse;
+      beacon.material.color.set('#00ff41').multiplyScalar(4.5 * intensity * pulse);
+      water.material.uniforms.uIntensity.value = beaconLight.intensity / 45;
+      halo.material.opacity = .13 * intensity * pulse;
+      outerHalo.material.opacity = .055 * intensity * pulse * (.7 + app.state.fog / 100 * .6);
+    }
+
+    function renderScene() {
+      // Render only the beacon into bloom, then composite it over the unbloomed bay.
+      camera.layers.set(BLOOM_LAYER);
+      bloomComposer.render();
+      camera.layers.set(0);
+      finalComposer.render();
+      needsRender = false;
+    }
+
+    function animate(now) {
+      frameId = requestAnimationFrame(animate);
+      const delta = lastTime ? Math.min((now - lastTime) / 1000, .06) : 0;
+      lastTime = now;
+      if (document.hidden || contextLost) return;
+      if (!app.state.playing && !needsRender) return;
+      if (app.state.playing) {
+        simulationTime += delta;
+        waterTime += delta * app.state.motion / 35;
+        water.material.uniforms.uTime.value = waterTime;
+        sky.material.uniforms.uTime.value = simulationTime;
+        updateBeacon();
+        if (!app.state.reducedMotion) {
+          const lerp = 1 - Math.exp(-delta * 1.3);
+          lookTarget.x += (app.state.pointer.x * .5 - lookTarget.x) * lerp;
+          lookTarget.y += (1.8 - app.state.pointer.y * .18 - lookTarget.y) * lerp;
+          camera.position.y = 3.1 + Math.sin(simulationTime * .17) * .035;
+          camera.position.x = Math.sin(simulationTime * .11) * .045;
+          camera.lookAt(lookTarget.x, lookTarget.y, -160);
+        }
+      }
+      renderScene();
+    }
+
+    function handleResize() {
+      if (!renderer || !camera) return;
+      const width = innerWidth, height = innerHeight;
+      camera.aspect = width / height;
+      camera.updateProjectionMatrix();
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+      renderer.setSize(width, height);
+      finalComposer.setPixelRatio(renderer.getPixelRatio());
+      finalComposer.setSize(width, height);
+      bloomComposer.setSize(width, height);
+      sky.material.uniforms.uAspect.value = width / height;
+      positionBeacon();
+      needsRender = true;
+    }
+
+    initialize();
+  </script>
+</body>
+</html>

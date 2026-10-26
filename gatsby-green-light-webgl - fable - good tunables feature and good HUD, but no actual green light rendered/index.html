@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>The Green Light — Gatsby's Bay · Three.js</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+
+  <style>
+    html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+    #scene { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+
+    /* soft lens vignette — purely cosmetic, sits above the canvas */
+    .vignette {
+      position: fixed; inset: 0; pointer-events: none;
+      background: radial-gradient(ellipse at 50% 45%, rgba(0,0,0,0) 50%, rgba(0,0,0,0.65) 100%);
+    }
+
+    #caption {
+      font-family: "Cormorant Garamond", Georgia, "Times New Roman", serif;
+      color: rgba(190, 204, 230, 0.6);
+      text-shadow: 0 0 18px rgba(0, 0, 0, 0.9);
+      opacity: 0;
+      animation: fadeIn 4s ease-out 1.5s forwards;
+    }
+    #caption p { font-style: italic; font-size: clamp(14px, 1.5vw, 19px); letter-spacing: 0.03em; }
+    #caption span { font-size: 11px; letter-spacing: 0.35em; text-transform: uppercase; opacity: 0.7; }
+    @keyframes fadeIn { to { opacity: 1; } }
+
+    #fallback {
+      display: none; position: fixed; inset: 0; place-items: center;
+      color: #9fb0cc; font: 14px/1.6 system-ui, sans-serif; text-align: center; padding: 2rem;
+    }
+  </style>
+
+  <!-- Modern Three.js via CDN import map (swap jsdelivr for unpkg / esm.sh if you prefer) -->
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+<body>
+  <canvas id="scene"></canvas>
+  <div class="vignette"></div>
+
+  <div id="caption" class="fixed bottom-8 left-0 right-0 px-6 text-center pointer-events-none select-none">
+    <p class="m-0">“Gatsby believed in the green light, the orgastic future that year by year recedes before us.”</p>
+    <span class="block mt-2">— F. Scott Fitzgerald</span>
+  </div>
+
+  <div id="fallback"></div>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+    import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+    import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+    import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+    /* =====================================================================
+       TUNABLES
+       Colors are sRGB hex; three.js converts them to linear for the shaders.
+       ===================================================================== */
+    const CONFIG = {
+      // Palette — everything is deep midnight blue / near-black.
+      fogColor:    0x0b1020,   // what the distance dissolves into. Near-black so fog DARKENS, never whitens.
+      zenithColor: 0x050811,   // sky straight up (haze thins -> darker)
+      waterColor:  0x020409,   // the water body itself: essentially black
+      beaconColor: 0x00ff41,   // the green light
+
+      fogDensity: 0.0052,      // FogExp2 density — thick enough to swallow the horizon
+
+      beacon: {
+        distance: 320,         // metres across the bay (the far dock is never seen)
+        height: 3.2,           // lamp on a post at the end of the dock
+        radius: 0.75,
+        emissive: 4.0,         // HDR multiplier on the sphere colour -> feeds the bloom
+        lightIntensity: 60,    // PointLight base intensity (candela)
+        haloSize: 30,          // soft mist-glow sprite diameter (world units)
+        haloOpacity: 0.45,
+      },
+
+      camera: { height: 1.6, fov: 48, pitchDeg: 3.5 },   // standing at the water's edge, horizon slightly high
+
+      water: {
+        size: 2000,            // plane extent (world units) — far edges are lost in fog
+        segments: 400,         // grid resolution (vertices are concentrated near the camera)
+        densityPower: 2.3,     // >1 pulls grid density toward the viewer
+        shininess: 600,        // Blinn-Phong exponent: high = glassy, narrow glitter path
+        specStrength: 5.0,     // HDR strength of the beacon's reflection
+        rippleScale: 1.0,      // fine wind-ripple amplitude
+        swellScale: 1.0,       // slow swell amplitude
+        specFogResist: 0.35,   // 0 = reflection fogs like everything else, 1 = reflection ignores fog
+      },
+
+      bloom: { strength: 1.5, radius: 0.85, threshold: 0.55 },
+      exposure: 1.0,
+    };
+
+    /* =====================================================================
+       GLSL — WATER
+       Vertex: 4 slow, long swells displace the mesh (analytic slopes).
+       Fragment: fine wind ripples + gradient-noise wavelets perturb the normal
+                 per pixel, with analytic anti-aliasing so distant ripples fade
+                 instead of turning into sparkle noise. Near-black Fresnel base,
+                 a tight Blinn-Phong lobe for the beacon (which at grazing angles
+                 smears into the long narrow glitter path), and the scene's
+                 FogExp2 applied using three.js' own fog uniforms.
+       ===================================================================== */
+    const WATER_VERT = /* glsl */`
+      uniform float uTime;
+      uniform float uSwellScale;
+
+      varying vec3 vWorldPos;
+      varying vec2 vSwellGrad;      // d(height)/d(x,z) of the large swells
+
+      #include <fog_pars_vertex>
+
+      // One slow swell. Deep-water dispersion (w = sqrt(g*k)) keeps long waves slower than short ones.
+      void addSwell(vec2 p, float distCam, float angle, float wavelength, float amp,
+                    inout float h, inout vec2 grad) {
+        vec2  d  = vec2(cos(angle), sin(angle));
+        float k  = 6.2831853 / wavelength;
+        float w  = sqrt(9.81 * k) * 0.45;            // slowed for a calm, cinematic bay
+        float ph = dot(d, p) * k - uTime * w;
+        // Fade swells the mesh can no longer resolve far from the camera (prevents moiré shimmer)
+        float lod = 1.0 - smoothstep(wavelength * 18.0, wavelength * 40.0, distCam);
+        float a   = amp * lod;
+        h    += a * sin(ph);
+        grad += a * k * cos(ph) * d;                 // analytic slope
+      }
+
+      void main() {
+        vec4 wp = modelMatrix * vec4(position, 1.0);
+        float distCam = distance(wp.xyz, cameraPosition);
+
+        float h = 0.0;
+        vec2  grad = vec2(0.0);
+        addSwell(wp.xz, distCam, 1.90, 64.0, 0.200 * uSwellScale, h, grad);
+        addSwell(wp.xz, distCam, 2.55, 39.0, 0.130 * uSwellScale, h, grad);
+        addSwell(wp.xz, distCam, 1.15, 23.0, 0.080 * uSwellScale, h, grad);
+        addSwell(wp.xz, distCam, 0.35, 14.0, 0.045 * uSwellScale, h, grad);
+        wp.y += h;
+
+        vWorldPos  = wp.xyz;
+        vSwellGrad = grad;
+
+        vec4 mvPosition = viewMatrix * wp;
+        gl_Position = projectionMatrix * mvPosition;
+        #include <fog_vertex>
+      }
+    `;
+
+    const WATER_FRAG = /* glsl */`
+      uniform float uTime;
+      uniform vec3  uLightPos;
+      uniform vec3  uLightColor;
+      uniform float uLightIntensity;
+      uniform vec3  uWaterColor;
+      uniform vec3  uHorizonColor;
+      uniform vec3  uZenithColor;
+      uniform float uShininess;
+      uniform float uSpecStrength;
+      uniform float uRippleScale;
+      uniform float uSpecFogResist;
+
+      varying vec3 vWorldPos;
+      varying vec2 vSwellGrad;
+
+      #include <fog_pars_fragment>
+
+      // ---- sin-free hash: stable at large world coordinates ----
+      float hash21(vec2 p) {
+        vec3 p3 = fract(vec3(p.xyx) * 0.1031);
+        p3 += dot(p3, p3.yzx + 33.33);
+        return fract((p3.x + p3.y) * p3.z);
+      }
+
+      // ---- value noise with analytic derivatives: returns (value, d/dx, d/dy) ----
+      vec3 noised(vec2 p) {
+        vec2 i = floor(p);
+        vec2 f = fract(p);
+        vec2 u  = f * f * f * (f * (f * 6.0 - 15.0) + 10.0);
+        vec2 du = 30.0 * f * f * (f * (f - 2.0) + 1.0);
+        float a = hash21(i);
+        float b = hash21(i + vec2(1.0, 0.0));
+        float c = hash21(i + vec2(0.0, 1.0));
+        float d = hash21(i + vec2(1.0, 1.0));
+        float k1 = b - a;
+        float k2 = c - a;
+        float k3 = a - b - c + d;
+        return vec3(a + k1 * u.x + k2 * u.y + k3 * u.x * u.y,
+                    du * vec2(k1 + k3 * u.y, k2 + k3 * u.x));
+      }
+
+      // Directional wind ripple. fw = world-space footprint of one pixel: ripples that become
+      // sub-pixel are faded out (analytic anti-aliasing) instead of turning into flicker.
+      void addRipple(vec2 p, vec2 fw, float angle, float wavelength, float amp, float speed, inout vec2 grad) {
+        vec2  d  = vec2(cos(angle), sin(angle));
+        float k  = 6.2831853 / wavelength;
+        float ph = dot(d, p) * k - uTime * speed;
+        float phasePerPixel = k * (abs(d.x) * fw.x + abs(d.y) * fw.y);
+        float lod = 1.0 - smoothstep(0.7, 2.6, phasePerPixel);
+        grad += (amp * k * lod) * cos(ph) * d;
+      }
+
+      vec2 rippleGradient(vec2 p, vec2 fw) {
+        vec2 g = vec2(0.0);
+
+        // Slow gust map: ripples come and go in patches, breaking up any regularity
+        float gust = 0.55 + 0.9 * noised(p * 0.012 + vec2(uTime * 0.015, -uTime * 0.01)).x;
+
+        addRipple(p, fw,  0.30, 4.2, 0.028 * gust, 2.0, g);
+        addRipple(p, fw, -0.45, 2.9, 0.018 * gust, 2.5, g);
+        addRipple(p, fw,  0.95, 6.6, 0.034 * gust, 1.6, g);
+        addRipple(p, fw,  2.40, 3.5, 0.016 * gust, 2.2, g);
+        addRipple(p, fw, -1.25, 9.1, 0.040,        1.3, g);
+        addRipple(p, fw,  1.65, 1.9, 0.009 * gust, 3.1, g);
+
+        // Two octaves of drifting gradient noise -> irregular wavelets
+        float f1 = 0.33;
+        float lod1 = 1.0 - smoothstep(0.5, 1.6, f1 * (fw.x + fw.y));
+        g += noised(p * f1 + vec2( uTime * 0.09, uTime * 0.06)).yz * (f1 * 0.110 * lod1);
+
+        float f2 = 0.85;
+        float lod2 = 1.0 - smoothstep(0.5, 1.6, f2 * (fw.x + fw.y));
+        g += noised(p * f2 + vec2(-uTime * 0.14, uTime * 0.11)).yz * (f2 * 0.045 * lod2);
+
+        return g;
+      }
+
+      // Same gradient the sky dome uses, so reflections match the sky exactly
+      vec3 skyColor(float elevation) {
+        float t = 1.0 - exp(-max(elevation, 0.0) * 5.0);
+        return mix(uHorizonColor, uZenithColor, t);
+      }
+
+      void main() {
+        vec3 P  = vWorldPos;
+        vec2 fw = fwidth(P.xz);
+
+        // Surface normal = slow swells (vertex) + fine ripples (pixel)
+        vec2 grad = vSwellGrad + rippleGradient(P.xz, fw) * uRippleScale;
+        vec3 N = normalize(vec3(-grad.x, 1.0, -grad.y));
+
+        vec3  V  = normalize(cameraPosition - P);
+        vec3  Lv = uLightPos - P;
+        float distL = length(Lv);
+        vec3  L  = Lv / distL;
+        vec3  H  = normalize(L + V);
+
+        // Schlick Fresnel: water reflects ~2% head-on, ~100% at grazing angles
+        float NdotV = clamp(dot(N, V), 0.0, 1.0);
+        float F = 0.02 + 0.98 * pow(1.0 - NdotV, 5.0);
+
+        // Base: near-black water body, faintly mirroring the dark sky
+        vec3 R = reflect(-V, N);
+        vec3 color = mix(uWaterColor, skyColor(R.y), F);
+
+        // The beacon: a tight Blinn-Phong lobe. Because we look across the surface at a grazing
+        // angle, the lobe stretches toward the viewer into a long, narrow glitter path.
+        float NdotH = clamp(dot(N, H), 0.0, 1.0);
+        float spec  = pow(NdotH, uShininess);
+        float atten = 1.0 / (1.0 + distL * 0.002);
+        vec3 specular = uLightColor * (uSpecStrength * uLightIntensity * F * spec * atten);
+
+        // A whisper of diffuse green on the ripples right under the lamp
+        float NdotL = clamp(dot(N, L), 0.0, 1.0);
+        color += uLightColor * (NdotL * uLightIntensity * 1.5 / (distL * distL + 1.0));
+
+        // Fog: three.js feeds fogColor / fogDensity from scene.fog (FogExp2)
+        float fogFactor = 0.0;
+        #ifdef USE_FOG
+          #ifdef FOG_EXP2
+            fogFactor = 1.0 - exp(-fogDensity * fogDensity * vFogDepth * vFogDepth);
+          #else
+            fogFactor = smoothstep(fogNear, fogFar, vFogDepth);
+          #endif
+          color = mix(color, fogColor, fogFactor);
+        #endif
+        // A light source scattered through haze stays visible longer than a dull surface would
+        specular *= mix(1.0 - fogFactor, 1.0, uSpecFogResist);
+
+        gl_FragColor = vec4(color + specular, 1.0);
+      }
+    `;
+
+    /* =====================================================================
+       GLSL — SKY DOME (horizon == fog colour, so the horizon line vanishes)
+       ===================================================================== */
+    const SKY_VERT = /* glsl */`
+      varying vec3 vDir;
+      void main() {
+        vDir = normalize(position);
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `;
+    const SKY_FRAG = /* glsl */`
+      uniform vec3 uHorizon;
+      uniform vec3 uZenith;
+      varying vec3 vDir;
+      void main() {
+        float e = max(normalize(vDir).y, 0.0);
+        float t = 1.0 - exp(-e * 5.0);            // haze hugs the horizon
+        gl_FragColor = vec4(mix(uHorizon, uZenith, t), 1.0);
+      }
+    `;
+
+    /* =====================================================================
+       STATE
+       ===================================================================== */
+    let renderer, scene, camera, composer, bloomPass;
+    let water, beacon, beaconLight, beaconMat, haloMat;
+
+    const beaconBase    = new THREE.Color(CONFIG.beaconColor);   // linear green, pre-multiplier
+    const pointer       = new THREE.Vector2();
+    const pointerSmooth = new THREE.Vector2();
+    const lookTarget    = new THREE.Vector3();
+
+    /* =====================================================================
+       INIT
+       ===================================================================== */
+    function init() {
+      const canvas = document.getElementById('scene');
+
+      renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.outputColorSpace = THREE.SRGBColorSpace;
+      // Neutral tone mapping keeps the deep blues intact (ACES would crush them to black)
+      // while still rolling the HDR beacon core off toward white.
+      renderer.toneMapping = THREE.NeutralToneMapping ?? THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = CONFIG.exposure;
+
+      scene = new THREE.Scene();
+      const fogColor = new THREE.Color(CONFIG.fogColor);
+      scene.background = fogColor;
+      // Dense exponential fog: the bay has no horizon, only haze.
+      scene.fog = new THREE.FogExp2(fogColor, CONFIG.fogDensity);
+
+      camera = new THREE.PerspectiveCamera(CONFIG.camera.fov, window.innerWidth / window.innerHeight, 0.1, 5000);
+      camera.position.set(0, CONFIG.camera.height, 0);
+
+      createSky();
+      setupLighting();
+      createWater();
+      createStars();
+      setupPostProcessing();
+
+      window.addEventListener('resize', onResize);
+      window.addEventListener('pointermove', onPointerMove);
+
+      requestAnimationFrame(animate);
+    }
+
+    /* =====================================================================
+       SKY
+       ===================================================================== */
+    function createSky() {
+      const geo = new THREE.SphereGeometry(1500, 32, 16);
+      const mat = new THREE.ShaderMaterial({
+        side: THREE.BackSide,
+        depthWrite: false,
+        fog: false,
+        uniforms: {
+          uHorizon: { value: scene.fog.color },                 // shared instance: horizon == fog
+          uZenith:  { value: new THREE.Color(CONFIG.zenithColor) },
+        },
+        vertexShader: SKY_VERT,
+        fragmentShader: SKY_FRAG,
+      });
+      const sky = new THREE.Mesh(geo, mat);
+      sky.renderOrder = -1;
+      scene.add(sky);
+    }
+
+    /* =====================================================================
+       LIGHTING — there is no moon, no shore. Only the green light.
+       ===================================================================== */
+    function setupLighting() {
+      // A whisper of ambient for any standard materials you might add later (a dock, a figure…)
+      scene.add(new THREE.HemisphereLight(CONFIG.zenithColor, 0x000000, 0.15));
+
+      const B = CONFIG.beacon;
+      beacon = new THREE.Group();
+      beacon.position.set(0, B.height, -B.distance);
+
+      // The lamp: unlit, HDR-bright neon green, exempt from fog so the bloom halo reads as
+      // light scattering in the haze rather than a dimmed object.
+      beaconMat = new THREE.MeshBasicMaterial({
+        color: beaconBase.clone().multiplyScalar(B.emissive),
+        fog: false,
+      });
+      const sphere = new THREE.Mesh(new THREE.SphereGeometry(B.radius, 24, 16), beaconMat);
+      beacon.add(sphere);
+
+      // The actual PointLight, attached to the lamp. The water shader reads its world position
+      // and (pulsing) intensity every frame, so the glitter path is physically tied to it.
+      beaconLight = new THREE.PointLight(CONFIG.beaconColor, B.lightIntensity, 0, 2);
+      beacon.add(beaconLight);
+
+      // Soft additive mist-glow around the lamp (the haze catching the light)
+      haloMat = new THREE.SpriteMaterial({
+        map: makeGlowTexture(),
+        color: CONFIG.beaconColor,
+        transparent: true,
+        opacity: B.haloOpacity,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        depthTest: false,
+        fog: false,
+      });
+      const halo = new THREE.Sprite(haloMat);
+      halo.scale.setScalar(B.haloSize);
+      halo.renderOrder = 10;
+      beacon.add(halo);
+
+      scene.add(beacon);
+      beacon.updateMatrixWorld(true);
+    }
+
+    function makeGlowTexture() {
+      const size = 256;
+      const c = document.createElement('canvas');
+      c.width = c.height = size;
+      const ctx = c.getContext('2d');
+      const g = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+      g.addColorStop(0.00, 'rgba(255,255,255,1.0)');
+      g.addColorStop(0.08, 'rgba(255,255,255,0.6)');
+      g.addColorStop(0.25, 'rgba(255,255,255,0.18)');
+      g.addColorStop(0.55, 'rgba(255,255,255,0.04)');
+      g.addColorStop(1.00, 'rgba(255,255,255,0.0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, size, size);
+      const tex = new THREE.CanvasTexture(c);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      return tex;
+    }
+
+    /* =====================================================================
+       WATER
+       ===================================================================== */
+    function createWater() {
+      const W = CONFIG.water;
+      const geo = buildWaterGrid(W.size / 2, W.segments, W.densityPower);
+
+      // Merge three.js' fog uniforms so the renderer feeds scene.fog straight into our shader.
+      const uniforms = THREE.UniformsUtils.merge([
+        THREE.UniformsLib.fog,
+        {
+          uTime:           { value: 0 },
+          uLightPos:       { value: new THREE.Vector3() },
+          uLightColor:     { value: new THREE.Color(CONFIG.beaconColor) },
+          uLightIntensity: { value: 1 },
+          uWaterColor:     { value: new THREE.Color(CONFIG.waterColor) },
+          uHorizonColor:   { value: new THREE.Color(CONFIG.fogColor) },
+          uZenithColor:    { value: new THREE.Color(CONFIG.zenithColor) },
+          uShininess:      { value: W.shininess },
+          uSpecStrength:   { value: W.specStrength },
+          uRippleScale:    { value: W.rippleScale },
+          uSwellScale:     { value: W.swellScale },
+          uSpecFogResist:  { value: W.specFogResist },
+        },
+      ]);
+      uniforms.uHorizonColor.value = scene.fog.color;   // share the instance with fog + sky
+
+      const mat = new THREE.ShaderMaterial({
+        uniforms,
+        vertexShader: WATER_VERT,
+        fragmentShader: WATER_FRAG,
+        fog: true,          // lets the renderer define USE_FOG / FOG_EXP2 and update fog uniforms
+      });
+
+      water = new THREE.Mesh(geo, mat);
+      scene.add(water);
+    }
+
+    // A square grid whose vertices are pulled toward the camera (at the origin), so the
+    // foreground gets sub-metre cells while the fog-bound distance stays cheap.
+    function buildWaterGrid(halfSize, segments, power) {
+      const geo = new THREE.PlaneGeometry(2, 2, segments, segments);
+      geo.rotateX(-Math.PI / 2);                       // lie flat, normal +Y
+      const pos = geo.attributes.position;
+      for (let i = 0; i < pos.count; i++) {
+        const u = pos.getX(i), v = pos.getZ(i);          // in [-1, 1]
+        const r = Math.max(Math.abs(u), Math.abs(v));    // "square radius"
+        const s = Math.pow(r, power - 1) * halfSize;
+        pos.setXYZ(i, u * s, 0, v * s);
+      }
+      pos.needsUpdate = true;
+      geo.computeBoundingSphere();
+      return geo;
+    }
+
+    /* =====================================================================
+       STARS — barely there; the haze eats everything near the horizon
+       ===================================================================== */
+    function createStars() {
+      const count = 700, R = 1400;
+      const positions = new Float32Array(count * 3);
+      const colors = new Float32Array(count * 3);
+      for (let i = 0; i < count; i++) {
+        const elev = Math.asin(Math.random());           // uniform over the hemisphere
+        const az = Math.random() * Math.PI * 2;
+        const x = Math.cos(elev) * Math.cos(az), y = Math.sin(elev), z = Math.cos(elev) * Math.sin(az);
+        positions.set([x * R, y * R, z * R], i * 3);
+        const vis = THREE.MathUtils.smoothstep(y, 0.12, 0.6);          // haze fade
+        const b = (0.15 + 0.85 * Math.pow(Math.random(), 3)) * 0.35 * vis;
+        colors.set([0.75 * b, 0.82 * b, 1.0 * b], i * 3);
+      }
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+      geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+      const mat = new THREE.PointsMaterial({
+        size: 1.6, sizeAttenuation: false, vertexColors: true,
+        transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, fog: false,
+      });
+      scene.add(new THREE.Points(geo, mat));
+    }
+
+    /* =====================================================================
+       POST-PROCESSING — Render -> UnrealBloom -> Output (tone map + sRGB)
+       The scene is so dark that a luminance threshold alone isolates the bloom:
+       only the beacon and the brightest glints on the water cross it, so the
+       green bleeds into the fog while the blacks stay black.
+       ===================================================================== */
+    function setupPostProcessing() {
+      composer = new EffectComposer(renderer);   // HalfFloat buffers: HDR survives into the bloom
+      composer.addPass(new RenderPass(scene, camera));
+
+      bloomPass = new UnrealBloomPass(
+        new THREE.Vector2(window.innerWidth, window.innerHeight),
+        CONFIG.bloom.strength,
+        CONFIG.bloom.radius,
+        CONFIG.bloom.threshold
+      );
+      composer.addPass(bloomPass);
+      composer.addPass(new OutputPass());
+    }
+
+    /* =====================================================================
+       EVENTS
+       ===================================================================== */
+    function onResize() {
+      const w = window.innerWidth, h = window.innerHeight;
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+      renderer.setSize(w, h);
+      composer.setSize(w, h);          // also resizes the bloom mip chain
+    }
+
+    function onPointerMove(e) {
+      pointer.set((e.clientX / window.innerWidth) * 2 - 1, (e.clientY / window.innerHeight) * 2 - 1);
+    }
+
+    /* =====================================================================
+       CAMERA — Gatsby's point of view: low, at the edge of the water, looking
+       straight across the bay. A little breathing sway and a touch of
+       pointer parallax keep it alive.
+       ===================================================================== */
+    function updateCamera(t) {
+      pointerSmooth.lerp(pointer, 0.04);
+      const C = CONFIG.camera;
+      const D = CONFIG.beacon.distance;
+
+      camera.position.set(
+        Math.sin(t * 0.31) * 0.05,
+        C.height + Math.sin(t * 0.57) * 0.05 + Math.sin(t * 1.13) * 0.015,
+        0
+      );
+
+      const baseY = C.height - Math.tan(THREE.MathUtils.degToRad(C.pitchDeg)) * D;
+      lookTarget.set(
+        Math.sin(t * 0.23) * 1.5 + pointerSmooth.x * 18,
+        baseY + Math.cos(t * 0.41) * 1.0 - pointerSmooth.y * 10,
+        -D
+      );
+      camera.lookAt(lookTarget);
+    }
+
+    /* =====================================================================
+       ANIMATION LOOP
+       ===================================================================== */
+    function animate(timeMs) {
+      requestAnimationFrame(animate);
+      const t = timeMs * 0.001;
+
+      // 1. Beacon pulse: slow sine with a faint secondary flicker (a lamp in the wind)
+      const pulse = 0.78 + 0.22 * Math.sin(t * 1.35) + 0.04 * Math.sin(t * 7.1) * Math.sin(t * 2.3);
+      beaconLight.intensity = CONFIG.beacon.lightIntensity * pulse;
+      beaconMat.color.copy(beaconBase).multiplyScalar(CONFIG.beacon.emissive * pulse);
+      haloMat.opacity = CONFIG.beacon.haloOpacity * (0.6 + 0.4 * pulse);
+
+      // 2. Feed the water: time, light position, light intensity
+      const u = water.material.uniforms;
+      u.uTime.value = t;
+      u.uLightIntensity.value = pulse;
+      beaconLight.getWorldPosition(u.uLightPos.value);
+
+      // 3. Camera + render through the bloom chain
+      updateCamera(t);
+      composer.render();
+    }
+
+    /* =====================================================================
+       GO
+       ===================================================================== */
+    try {
+      init();
+    } catch (err) {
+      console.error(err);
+      const el = document.getElementById('fallback');
+      el.style.display = 'grid';
+      el.textContent = 'This scene needs WebGL 2. ' + (err && err.message ? err.message : '');
+    }
+  </script>
+</body>
+</html>

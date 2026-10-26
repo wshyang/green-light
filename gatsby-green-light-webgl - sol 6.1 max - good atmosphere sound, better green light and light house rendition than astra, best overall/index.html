@@ -1,0 +1,956 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#050c11">
+  <meta name="description" content="An interactive, cinematic study of the green light across Gatsby's bay. A moment suspended between distance and desire.">
+  <title>The Green Light | A Gatsby Experience</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=Manrope:wght@400;500;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  <style>
+    :root {
+      color-scheme: dark;
+      --ink: #e3e8df;
+      --muted: #94a09f;
+      --green: #a2bea8;
+      --hairline: rgba(204, 222, 212, .15);
+      --sans: 'Manrope', sans-serif;
+      --serif: 'Cormorant Garamond', Georgia, serif;
+    }
+    * { box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; }
+    body { background: #050c11; color: var(--ink); font-family: var(--sans); -webkit-font-smoothing: antialiased; }
+    button, a, input { -webkit-tap-highlight-color: transparent; }
+    button { color: inherit; font: inherit; cursor: pointer; }
+    button, a { touch-action: manipulation; }
+    button { border: 0; background: none; padding: 0; }
+    a { color: inherit; text-decoration: none; }
+    button:focus-visible, a:focus-visible, input:focus-visible { outline: 1px solid #a2bea8; outline-offset: 7px; }
+    button:disabled { cursor: wait; opacity: .55; }
+    [hidden] { display: none !important; }
+    ::selection { color: #e3e8df; background: #244a3c; }
+    .experience { position: relative; width: 100%; height: 100%; height: 100dvh; isolation: isolate; }
+    .scene, .scene canvas, .scene-shade { position: absolute; inset: 0; width: 100%; height: 100%; }
+    .scene { z-index: -3; overflow: hidden; }
+    .scene canvas { display: block; }
+    #webgl-canvas { opacity: 0; transition: opacity 1.6s ease; }
+    .has-webgl #webgl-canvas { opacity: 1; }
+    .scene-shade {
+      pointer-events: none;
+      z-index: -1;
+      background: linear-gradient(90deg, rgba(2, 7, 11, .58) 0%, rgba(2, 7, 11, .24) 34%, transparent 61%),
+        linear-gradient(0deg, rgba(2, 7, 11, .48), transparent 19%, transparent 80%, rgba(2, 7, 11, .22));
+      transition: opacity 1.4s ease;
+    }
+    .site-header { position: absolute; top: 37px; left: 48px; right: 48px; display: flex; align-items: center; justify-content: space-between; z-index: 5; animation: fade-in 1.8s ease both; }
+    .brand { display: inline-flex; align-items: center; gap: 14px; min-height: 42px; }
+    .brand-mark { width: 26px; height: 40px; color: #b3c7b6; transition: color .3s ease; }
+    .brand:hover .brand-mark { color: #e0e9dd; }
+    .brand-label { font-size: 9px; font-weight: 500; line-height: 1.9; letter-spacing: .28em; }
+    .brand-label span { display: block; }
+    .brand-label span:last-child { font-size: 8px; letter-spacing: .35em; color: #85948e; }
+    .return-label { display: none; align-items: center; gap: 10px; font-size: 9px; letter-spacing: .19em; }
+    .return-label svg { width: 16px; }
+    .header-nav { display: flex; align-items: center; gap: 28px; }
+    .nav-button { position: relative; display: flex; align-items: center; gap: 11px; min-height: 42px; font-size: 9px; font-weight: 500; letter-spacing: .2em; text-transform: uppercase; color: #b2bdb9; transition: color .25s; }
+    .nav-button:hover { color: #f1f4eb; }
+    .nav-divider { width: 1px; height: 15px; background: var(--hairline); }
+    .sound-icon { width: 17px; height: 17px; }
+    #sound-wave { opacity: 0; transition: opacity .3s; }
+    #sound-slash { transition: opacity .3s; }
+    .sound-on #sound-wave { opacity: 1; }
+    .sound-on #sound-slash { opacity: 0; }
+    .hero { position: absolute; top: 49%; left: 9.05%; transform: translateY(-44%); max-width: 650px; transition: opacity .85s ease, filter .85s ease, visibility .85s; }
+    .eyebrow { display: flex; align-items: center; gap: 14px; margin: 0 0 27px; color: #a0b7a7; font-size: 8px; font-weight: 500; letter-spacing: .29em; line-height: 1.8; text-transform: uppercase; animation: rise-in 1.4s .15s both; }
+    .eyebrow::before { content: ''; width: 29px; height: 1px; background: #849e8d; opacity: .8; }
+    .hero-title { margin: 0 0 27px -5px; font-family: var(--serif); font-size: clamp(92px, 9.2vw, 148px); font-weight: 300; line-height: .85; letter-spacing: -.045em; animation: rise-in 1.6s .3s both; }
+    .hero-title > span { display: block; }
+    .hero-title em { font-weight: 300; color: #c7d7c5; }
+    .hero-title > span + span { margin-top: 5px; }
+    .hero-description { max-width: 300px; margin: 0; color: #98a6a5; font-size: 12px; font-weight: 400; line-height: 1.95; letter-spacing: .025em; animation: rise-in 1.5s .5s both; }
+    .enter-button { display: inline-flex; align-items: center; gap: 17px; margin-top: 31px; min-height: 48px; font-size: 9px; font-weight: 500; letter-spacing: .19em; text-transform: uppercase; animation: rise-in 1.5s .7s both; }
+    .enter-orbit { display: grid; place-items: center; width: 43px; height: 43px; border: 1px solid rgba(176, 202, 180, .4); border-radius: 50%; transition: background .4s, border-color .4s, transform .6s; }
+    .enter-orbit svg { width: 17px; transition: transform .4s; }
+    .enter-button:hover .enter-orbit { background: rgba(139, 187, 150, .09); border-color: #b5cbb6; transform: scale(1.07); }
+    .enter-button:hover svg { transform: translateX(3px); }
+    .enter-button > span:last-child { color: #c6d0c9; transition: color .3s; }
+    .enter-button:hover > span:last-child { color: #f0f3e9; }
+    .scene-footer { position: absolute; bottom: 27px; left: 48px; right: 48px; display: flex; align-items: center; justify-content: space-between; gap: 20px; padding-top: 20px; border-top: 1px solid rgba(179, 202, 190, .12); z-index: 5; animation: fade-in 2s 1s both; }
+    .scene-status { display: flex; align-items: center; gap: 10px; color: #7d9188; font-size: 8px; font-weight: 500; letter-spacing: .2em; white-space: nowrap; }
+    .status-dot { width: 4px; height: 4px; border-radius: 50%; background: #8cb99a; box-shadow: 0 0 8px rgba(112, 206, 142, .18); transition: background .4s; }
+    .paused .status-dot { background: #6a7777; box-shadow: none; }
+    .explore-hint { position: absolute; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 10px; color: #677b7c; font-size: 7px; letter-spacing: .23em; text-transform: uppercase; white-space: nowrap; transition: opacity .6s; }
+    .explore-hint svg { width: 12px; height: 18px; opacity: .8; }
+    .scene-controls { display: flex; align-items: center; gap: 14px; }
+    .icon-button { position: relative; display: grid; place-items: center; width: 30px; height: 30px; color: #8e9f9a; transition: color .25s; }
+    .icon-button:hover, .icon-button[aria-expanded="true"] { color: #e2eadd; }
+    .icon-button > svg { width: 16px; height: 16px; }
+    .control-divider { width: 1px; height: 13px; margin: 0 4px; background: var(--hairline); }
+    .tooltip { position: absolute; bottom: 43px; right: -10px; opacity: 0; transform: translateY(4px); pointer-events: none; padding: 7px 10px; border: 1px solid var(--hairline); background: #101b1e; color: #c6d2c9; font-size: 9px; letter-spacing: .04em; white-space: nowrap; transition: opacity .2s, transform .2s; }
+    .icon-button:hover .tooltip, .icon-button:focus-visible .tooltip { opacity: 1; transform: translateY(0); }
+    .immersive .hero { opacity: 0; filter: blur(6px); visibility: hidden; pointer-events: none; }
+    .immersive .scene-shade { opacity: .22; }
+    .immersive .brand-label { display: none; }
+    .immersive .return-label { display: flex; }
+    .immersive .explore-hint { opacity: .6; }
+    .settings-panel { position: absolute; right: 48px; bottom: 100px; width: 304px; max-height: calc(100dvh - 170px); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: #3a5144 transparent; padding: 25px 25px 23px; z-index: 10; background: rgba(10, 21, 24, .95); border: 1px solid rgba(179, 202, 190, .19); backdrop-filter: blur(24px); box-shadow: 0 16px 60px rgba(0, 0, 0, .2); animation: panel-in .25s ease both; }
+    .settings-heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: 25px; }
+    .settings-heading h2 { margin: 0; font-family: var(--serif); font-size: 30px; font-weight: 400; letter-spacing: -.02em; }
+    .small-close { display: grid; place-items: center; width: 25px; height: 25px; color: #82968d; }
+    .small-close:hover { color: #e1eadb; }
+    .small-close svg { width: 14px; }
+    .setting + .setting { margin-top: 25px; }
+    .setting-label { display: flex; justify-content: space-between; font-size: 10px; letter-spacing: .025em; color: #aab9b1; }
+    .setting-label output { color: #6e8c7c; font-size: 9px; font-variant-numeric: tabular-nums; }
+    .setting input { display: block; width: 100%; height: 18px; margin: 10px 0 0; cursor: pointer; appearance: none; background: transparent; accent-color: #a6c3aa; }
+    .setting input::-webkit-slider-runnable-track { height: 1px; background: linear-gradient(to right, #9cb7a1 var(--fill, 50%), #33463d var(--fill, 50%)); }
+    .setting input::-webkit-slider-thumb { appearance: none; width: 7px; height: 7px; margin-top: -3px; border-radius: 50%; background: #bdd1bd; box-shadow: 0 0 0 4px rgba(167, 197, 171, .04); }
+    .setting input::-moz-range-track { height: 1px; background: #33463d; }
+    .setting input::-moz-range-progress { height: 1px; background: #9cb7a1; }
+    .setting input::-moz-range-thumb { width: 7px; height: 7px; border: 0; border-radius: 50%; background: #bdd1bd; }
+    .settings-bottom { display: flex; align-items: center; justify-content: space-between; margin-top: 25px; padding-top: 18px; border-top: 1px solid var(--hairline); }
+    .reset-button { color: #8fa896; font-size: 8px; letter-spacing: .15em; text-transform: uppercase; transition: color .2s; }
+    .reset-button:hover { color: #e3eadc; }
+    .settings-note { color: #526c60; font-size: 8px; }
+    .story-dialog { width: 100vw; height: 100%; height: 100dvh; max-width: none; max-height: none; margin: 0; padding: 70px 30px; overflow-y: auto; border: 0; color: var(--ink); background: rgba(3, 10, 14, .86); }
+    .story-dialog[open] { display: grid; place-items: center; }
+    .story-dialog::backdrop { background: rgba(0, 5, 8, .45); backdrop-filter: blur(15px); }
+    .story-content { width: 100%; max-width: 570px; animation: rise-in .7s both; }
+    .story-close { position: fixed; top: 39px; right: 47px; width: 32px; height: 32px; }
+    .story-close svg { width: 21px; }
+    .story-kicker { margin: 0 0 26px; color: #94ad9b; font-size: 8px; letter-spacing: .28em; text-transform: uppercase; }
+    .story-content h2 { margin: 0 0 29px; font-family: var(--serif); font-size: clamp(44px, 5.4vw, 68px); font-weight: 300; letter-spacing: -.035em; line-height: .98; }
+    .story-content h2 em { color: #b6cbb6; font-weight: 300; }
+    .story-content blockquote { margin: 0 0 20px; padding-left: 23px; border-left: 1px solid #476551; font-family: var(--serif); font-size: 23px; font-weight: 300; line-height: 1.5; color: #b2c1b9; }
+    .story-content cite { display: block; margin-top: 14px; color: #6e8d7b; font-family: var(--sans); font-size: 8px; font-style: normal; letter-spacing: .12em; text-transform: uppercase; }
+    .story-copy { margin: 29px 0 0; max-width: 500px; color: #8c9f99; font-size: 11px; line-height: 2; }
+    .story-credit { margin-top: 29px; padding-top: 20px; border-top: 1px solid var(--hairline); color: #59766a; font-size: 9px; line-height: 1.9; }
+    .story-return { display: inline-flex; align-items: center; gap: 13px; margin-top: 30px; color: #b9ceb9; font-size: 9px; letter-spacing: .17em; text-transform: uppercase; }
+    .story-return svg { width: 18px; transition: transform .3s; }
+    .story-return:hover svg { transform: translateX(4px); }
+    .toast { position: absolute; left: 50%; bottom: 105px; z-index: 20; max-width: calc(100% - 48px); transform: translateX(-50%); padding: 12px 18px; border: 1px solid var(--hairline); background: rgba(10, 22, 24, .94); color: #b4c6bc; font-size: 10px; line-height: 1.6; text-align: center; animation: panel-in .3s both; }
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border-width: 0; }
+    @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes rise-in { from { opacity: 0; transform: translateY(17px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes panel-in { from { opacity: 0; translate: 0 8px; } to { opacity: 1; translate: 0 0; } }
+    @media (min-width: 1600px) { .hero { left: 10.5%; } }
+    @media (max-width: 900px) {
+      .site-header { top: 28px; left: 30px; right: 30px; }
+      .hero { left: 8%; }
+      .hero-title { font-size: 108px; }
+      .scene-footer { left: 30px; right: 30px; bottom: 24px; }
+      .settings-panel { right: 30px; }
+      .explore-hint { display: none; }
+    }
+    @media (max-width: 600px) {
+      .site-header { top: 25px; left: 25px; right: 25px; }
+      .brand { gap: 11px; }
+      .brand-mark { width: 21px; height: 34px; }
+      .brand-label { font-size: 7px; letter-spacing: .22em; }
+      .brand-label span:last-child { font-size: 6px; letter-spacing: .3em; }
+      .header-nav { gap: 17px; }
+      .nav-button { gap: 8px; font-size: 7px; letter-spacing: .15em; }
+      .nav-divider { height: 12px; }
+      .sound-icon { width: 15px; }
+      .hero { top: 46%; left: 29px; right: 22px; transform: translateY(-44%); }
+      .eyebrow { margin-bottom: 26px; gap: 11px; font-size: 6.5px; letter-spacing: .21em; }
+      .eyebrow::before { width: 22px; }
+      .hero-title { margin-left: -3px; margin-bottom: 25px; font-size: clamp(77px, 18.7vw, 110px); line-height: .87; }
+      .hero-description { max-width: 234px; font-size: 10px; line-height: 1.95; }
+      .enter-button { margin-top: 26px; gap: 14px; font-size: 8px; letter-spacing: .15em; }
+      .enter-orbit { width: 39px; height: 39px; }
+      .scene-footer { bottom: 22px; left: 25px; right: 25px; padding-top: 16px; }
+      .scene-status { font-size: 6.5px; letter-spacing: .15em; gap: 8px; }
+      .scene-controls { gap: 10px; }
+      .icon-button { width: 27px; height: 29px; }
+      .icon-button > svg { width: 14px; height: 14px; }
+      .control-divider { margin: 0 1px; }
+      .settings-panel { right: 25px; bottom: 94px; width: min(304px, calc(100vw - 50px)); }
+      .return-label { font-size: 7px; letter-spacing: .1em; gap: 6px; }
+      .return-label svg { display: none; }
+      .story-dialog { padding: 94px 29px 45px; }
+      .story-close { top: 29px; right: 24px; }
+      .story-content blockquote { font-size: 21px; padding-left: 17px; }
+      .story-copy { font-size: 10px; }
+      .story-kicker { font-size: 7px; }
+      .toast { bottom: 95px; font-size: 9px; }
+    }
+    @media (max-height: 680px) and (min-width: 601px) {
+      .site-header { top: 23px; }
+      .hero { top: 48%; transform: translateY(-42%); }
+      .hero-title { font-size: 92px; margin-bottom: 20px; }
+      .eyebrow { margin-bottom: 21px; }
+      .hero-description { font-size: 11px; }
+      .enter-button { margin-top: 21px; }
+      .scene-footer { bottom: 19px; padding-top: 13px; }
+    }
+    @media (max-height: 630px) and (max-width: 600px) {
+      .hero { top: 46%; }
+      .hero-title { font-size: 68px; margin-bottom: 18px; }
+      .eyebrow { margin-bottom: 18px; }
+      .enter-button { margin-top: 17px; }
+    }
+    @media (max-height: 500px) and (min-width: 601px) {
+      .hero { top: 48%; transform: translateY(-41%); }
+      .eyebrow { display: none; }
+      .hero-title { font-size: 64px; margin-bottom: 14px; }
+      .hero-description { max-width: 360px; font-size: 10px; line-height: 1.8; }
+      .enter-button { margin-top: 16px; min-height: 36px; }
+      .enter-orbit { width: 34px; height: 34px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: .01ms !important; animation-delay: 0ms !important; transition-duration: .01ms !important; }
+    }
+  </style>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.182.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.182.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <main class="experience" id="experience">
+    <div class="scene" id="scene" aria-hidden="true">
+      <canvas id="atmosphere-preview"></canvas>
+    </div>
+    <div class="scene-shade" aria-hidden="true"></div>
+    <p class="sr-only">A midnight bay, seen from just above the water. A distant green beacon breathes through the fog, its reflection broken into slowly moving ripples.</p>
+
+    <header class="site-header">
+      <a class="brand" id="home-link" href="#" aria-label="The Gatsby Experience. Return to the shore.">
+        <svg class="brand-mark" viewBox="0 0 28 44" fill="none" aria-hidden="true">
+          <path d="M14 1 26 22 14 43 2 22 14 1Z" stroke="currentColor" stroke-width=".75"/>
+          <path d="m14 8 8 14-8 14-8-14 8-14Z" stroke="currentColor" stroke-width=".65"/>
+          <path d="M14 1v12m0 18v12M2 22h7m10 0h7" stroke="currentColor" stroke-width=".65"/>
+          <path d="m14 17 3 5-3 5-3-5 3-5Z" fill="currentColor" opacity=".8"/>
+        </svg>
+        <span class="brand-label"><span>The Gatsby</span><span>Experience</span></span>
+        <span class="return-label"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m10 6-6 6 6 6M4 12h16" stroke="currentColor" stroke-width="1"/></svg>Back to the shore</span>
+      </a>
+      <nav class="header-nav" aria-label="Experience information">
+        <button class="nav-button" id="story-button" aria-haspopup="dialog">The story</button>
+        <span class="nav-divider" aria-hidden="true"></span>
+        <button class="nav-button" id="sound-button" aria-pressed="false" aria-label="Enable ambient ocean sound">
+          <svg class="sound-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="m11 5-5 4H3v6h3l5 4V5Z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/>
+            <path id="sound-wave" d="M15 8a6 6 0 0 1 0 8m3-11a10 10 0 0 1 0 14" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/>
+            <path id="sound-slash" d="m16 9 5 6m0-6-5 6" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/>
+          </svg>
+          <span id="sound-label">Sound off</span>
+        </button>
+      </nav>
+    </header>
+
+    <section class="hero" aria-labelledby="hero-title">
+      <p class="eyebrow">A distant light. An endless longing.</p>
+      <h1 class="hero-title" id="hero-title"><span>The <em>green</em></span><span>light.</span></h1>
+      <p class="hero-description">A study in distance, desire, and the things we reach for.</p>
+      <button class="enter-button" id="enter-button" aria-label="Enter the experience. Hide the introduction for an unobstructed view of the bay.">
+        <span class="enter-orbit"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 12h15m-5-5 5 5-5 5" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+        <span>Enter the experience</span>
+      </button>
+    </section>
+
+    <footer class="scene-footer">
+      <div class="scene-status" role="status"><span class="status-dot" aria-hidden="true"></span><span id="scene-status">A moment, suspended</span></div>
+      <div class="explore-hint" aria-hidden="true">
+        <svg viewBox="0 0 14 21" fill="none"><rect x="2.5" y="1.5" width="9" height="16" rx="4.5" stroke="currentColor" stroke-width=".8"/><path d="M7 5v3" stroke="currentColor" stroke-width=".8" stroke-linecap="round"/></svg>
+        Move slowly. Stay awhile.
+      </div>
+      <div class="scene-controls" role="group" aria-label="Scene controls">
+        <button class="icon-button" id="pause-button" aria-label="Pause motion" aria-pressed="false">
+          <svg id="pause-icon" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M7 4v12m6-12v12" stroke="currentColor" stroke-width="1.2"/></svg>
+          <svg id="play-icon" viewBox="0 0 20 20" fill="none" aria-hidden="true" hidden><path d="m6 3 10 7-10 7V3Z" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round"/></svg>
+          <span class="tooltip" id="pause-tooltip">Pause motion</span>
+        </button>
+        <button class="icon-button" id="settings-button" aria-label="Scene settings" aria-expanded="false" aria-controls="settings-panel">
+          <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M3 5h6m4 0h4M3 10h2m4 0h8M3 15h8m4 0h2" stroke="currentColor" stroke-width="1" stroke-linecap="round"/><circle cx="11" cy="5" r="2" stroke="currentColor"/><circle cx="7" cy="10" r="2" stroke="currentColor"/><circle cx="13" cy="15" r="2" stroke="currentColor"/></svg>
+          <span class="tooltip">Shape the atmosphere</span>
+        </button>
+        <span class="control-divider" aria-hidden="true"></span>
+        <button class="icon-button" id="fullscreen-button" aria-label="Enter full screen" aria-pressed="false">
+          <svg id="expand-icon" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M3 7V3h4m6 0h4v4M3 13v4h4m6 0h4v-4" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <svg id="contract-icon" viewBox="0 0 20 20" fill="none" aria-hidden="true" hidden><path d="M7 3v4H3m14 0h-4V3M3 13h4v4m6 0v-4h4" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span class="tooltip" id="fullscreen-tooltip">Full screen</span>
+        </button>
+      </div>
+    </footer>
+
+    <aside class="settings-panel" id="settings-panel" aria-labelledby="settings-title" hidden>
+      <div class="settings-heading"><h2 id="settings-title">Atmosphere</h2><button class="small-close" id="settings-close" aria-label="Close scene settings"><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="m5 5 10 10M15 5 5 15" stroke="currentColor"/></svg></button></div>
+      <div class="setting">
+        <div class="setting-label"><label for="fog-range">Veil of fog</label><output id="fog-value" for="fog-range">60%</output></div>
+        <input id="fog-range" type="range" min="20" max="110" value="60" step="1">
+      </div>
+      <div class="setting">
+        <div class="setting-label"><label for="glow-range">Beacon glow</label><output id="glow-value" for="glow-range">100%</output></div>
+        <input id="glow-range" type="range" min="30" max="160" value="100" step="1">
+      </div>
+      <div class="setting">
+        <div class="setting-label"><label for="wave-range">Restless water</label><output id="wave-value" for="wave-range">85%</output></div>
+        <input id="wave-range" type="range" min="10" max="150" value="85" step="1">
+      </div>
+      <div class="settings-bottom"><button class="reset-button" id="reset-settings">Restore the moment</button><span class="settings-note">Made to move slowly.</span></div>
+    </aside>
+
+    <div class="toast" id="toast" role="status" hidden></div>
+
+    <dialog class="story-dialog" id="story-dialog" aria-labelledby="story-title">
+      <button class="small-close story-close" id="story-close" aria-label="Close the story"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" stroke="currentColor" stroke-width=".9"/></svg></button>
+      <article class="story-content">
+        <p class="story-kicker">On the other side of the water</p>
+        <h2 id="story-title">A little light.<br>An <em>impossible</em> distance.</h2>
+        <blockquote>"...he stretched out his arms toward the dark water in a curious way, and, far as I was from him, I could have sworn he was trembling."<cite>F. Scott Fitzgerald, The Great Gatsby, 1925</cite></blockquote>
+        <p class="story-copy">At the end of Daisy's dock, a green light burns across the bay. To Gatsby, it is not simply a light. It is a promise, a past, a future almost close enough to touch. This is an invitation to stand where he stood, and look a little longer.</p>
+        <p class="story-credit">An independent visual homage to the atmosphere of The Great Gatsby (2013) and the world of F. Scott Fitzgerald's novel. Rendered in real time with Three.js.</p>
+        <button class="story-return" id="story-return">Return to the bay<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 12h15m-5-5 5 5-5 5" stroke="currentColor" stroke-width="1"/></svg></button>
+      </article>
+    </dialog>
+  </main>
+
+  <script type="module">
+    const $ = (id) => document.getElementById(id);
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const state = { paused: reducedMotion.matches, immersive: false, sound: false, fog: .006, glow: 1, waves: .85 };
+    const pointer = { x: 0, y: 0 };
+    const smoothPointer = { x: 0, y: 0 };
+    let sceneTime = 0;
+    let previousTime = performance.now();
+    let toastTimer;
+    let sceneReady = false;
+    let renderDirty = true;
+    let shaderFailed = false;
+    let THREE, EffectComposer, RenderPass, UnrealBloomPass, ShaderPass, OutputPass;
+    let renderer, scene, camera, water, sky, beacon, beaconLight, beaconMaterial, beaconPole;
+    let innerHalo, outerHalo, bloomComposer, finalComposer, bloomPass, mixPass;
+    let timeUniform, lightPosition, baseGreen, cameraTarget, cameraLookAt;
+    let audio = null;
+    let soundBusy = false;
+
+    function showToast(message) {
+      clearTimeout(toastTimer);
+      $('toast').textContent = message;
+      $('toast').hidden = false;
+      toastTimer = setTimeout(() => { $('toast').hidden = true; }, 4200);
+    }
+
+    function updatePauseUI() {
+      document.body.classList.toggle('paused', state.paused);
+      $('pause-button').setAttribute('aria-pressed', String(state.paused));
+      $('pause-button').setAttribute('aria-label', state.paused ? 'Resume motion' : 'Pause motion');
+      $('pause-tooltip').textContent = state.paused ? 'Resume motion' : 'Pause motion';
+      $('pause-icon').toggleAttribute('hidden', state.paused);
+      $('play-icon').toggleAttribute('hidden', !state.paused);
+      $('scene-status').textContent = state.paused ? 'The world, held still' : 'A moment, suspended';
+      renderDirty = true;
+    }
+
+    function togglePause() { state.paused = !state.paused; updatePauseUI(); }
+
+    function setImmersive(value) {
+      state.immersive = value;
+      renderDirty = true;
+      document.body.classList.toggle('immersive', value);
+      $('hero-title').closest('section').inert = value;
+      if (value) $('home-link').focus({ preventScroll: true });
+      else $('enter-button').focus({ preventScroll: true });
+      setSettings(false);
+    }
+
+    function setSettings(open, restoreFocus = false) {
+      $('settings-panel').hidden = !open;
+      $('settings-button').setAttribute('aria-expanded', String(open));
+      if (open) $('fog-range').focus({ preventScroll: true });
+      else if (restoreFocus) $('settings-button').focus({ preventScroll: true });
+    }
+
+    function syncSettings() {
+      for (const name of ['fog', 'glow', 'wave']) {
+        const range = $(`${name}-range`);
+        $(`${name}-value`).textContent = `${range.value}%`;
+        const fill = (Number(range.value) - Number(range.min)) / (Number(range.max) - Number(range.min)) * 100;
+        range.style.setProperty('--fill', `${fill}%`);
+      }
+      state.fog = Number($('fog-range').value) / 10000;
+      state.glow = Number($('glow-range').value) / 100;
+      state.waves = Number($('wave-range').value) / 100;
+      if (scene) scene.fog.density = state.fog;
+      if (water) water.material.uniforms.uWaveStrength.value = state.waves;
+      if (sky) sky.material.uniforms.uFogStrength.value = state.fog / .006;
+      previewPaintTime = -1;
+      renderDirty = true;
+    }
+
+    $('enter-button').addEventListener('click', () => setImmersive(true));
+    $('home-link').addEventListener('click', (event) => { event.preventDefault(); setImmersive(false); });
+    $('pause-button').addEventListener('click', togglePause);
+    $('settings-button').addEventListener('click', () => setSettings($('settings-panel').hidden));
+    $('settings-close').addEventListener('click', () => setSettings(false, true));
+    document.addEventListener('pointerdown', (event) => {
+      if (!$('settings-panel').hidden && !$('settings-panel').contains(event.target) && !$('settings-button').contains(event.target)) setSettings(false);
+    });
+    $('settings-panel').addEventListener('keydown', (event) => {
+      if (event.key !== 'Tab') return;
+      const items = [...$('settings-panel').querySelectorAll('button, input')];
+      if (event.shiftKey && document.activeElement === items[0]) { event.preventDefault(); items.at(-1).focus(); }
+      else if (!event.shiftKey && document.activeElement === items.at(-1)) { event.preventDefault(); items[0].focus(); }
+    });
+    ['fog', 'glow', 'wave'].forEach((name) => $(`${name}-range`).addEventListener('input', syncSettings));
+    $('reset-settings').addEventListener('click', () => {
+      $('fog-range').value = 60;
+      $('glow-range').value = 100;
+      $('wave-range').value = 85;
+      syncSettings();
+    });
+    $('story-button').addEventListener('click', () => { setSettings(false); $('story-dialog').showModal(); });
+    ['story-close', 'story-return'].forEach((id) => $(id).addEventListener('click', () => $('story-dialog').close()));
+    $('story-dialog').addEventListener('click', (event) => { if (event.target === $('story-dialog')) $('story-dialog').close(); });
+
+    async function toggleFullscreen() {
+      try {
+        if (document.fullscreenElement) await document.exitFullscreen();
+        else if (document.documentElement.requestFullscreen) await document.documentElement.requestFullscreen();
+        else showToast('Full screen is not available in this browser. The bay is already yours to explore.');
+      } catch { showToast('Full screen is unavailable. You can still enter the immersive experience.'); }
+    }
+    $('fullscreen-button').addEventListener('click', toggleFullscreen);
+    document.addEventListener('fullscreenchange', () => {
+      const active = Boolean(document.fullscreenElement);
+      $('fullscreen-button').setAttribute('aria-pressed', String(active));
+      $('fullscreen-button').setAttribute('aria-label', active ? 'Exit full screen' : 'Enter full screen');
+      $('fullscreen-tooltip').textContent = active ? 'Exit full screen' : 'Full screen';
+      $('expand-icon').toggleAttribute('hidden', active);
+      $('contract-icon').toggleAttribute('hidden', !active);
+    });
+    document.addEventListener('keydown', (event) => {
+      if ($('story-dialog').open) return;
+      if (event.key === 'Escape') {
+        if (!$('settings-panel').hidden) setSettings(false, true);
+        else if (state.immersive) setImmersive(false);
+        return;
+      }
+      if (event.target.closest('input, textarea, button, a, [contenteditable="true"]') || event.ctrlKey || event.metaKey || event.altKey || event.repeat) return;
+      if (event.code === 'Space') { event.preventDefault(); togglePause(); }
+      if (event.key.toLowerCase() === 'f') toggleFullscreen();
+      if (event.key.toLowerCase() === 's') toggleSound();
+    });
+    window.addEventListener('pointermove', (event) => {
+      if (event.pointerType === 'touch') return;
+      pointer.x = (event.clientX / innerWidth - .5) * 2;
+      pointer.y = (event.clientY / innerHeight - .5) * 2;
+    }, { passive: true });
+    document.documentElement.addEventListener('pointerleave', () => { pointer.x = 0; pointer.y = 0; });
+    reducedMotion.addEventListener('change', (event) => { state.paused = event.matches; updatePauseUI(); });
+
+    // Filtered pink noise and a very slow gain envelope create ocean sound without an audio download.
+    function createOceanAudio() {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContext) throw new Error('Web Audio is not supported');
+      const context = new AudioContext();
+      const buffer = context.createBuffer(2, context.sampleRate * 6, context.sampleRate);
+      for (let channel = 0; channel < 2; channel++) {
+        const data = buffer.getChannelData(channel);
+        let b0 = 0, b1 = 0, b2 = 0;
+        for (let i = 0; i < data.length; i++) {
+          const white = Math.random() * 2 - 1;
+          b0 = .99765 * b0 + white * .099046;
+          b1 = .963 * b1 + white * .2965164;
+          b2 = .57 * b2 + white * 1.0526913;
+          data[i] = (b0 + b1 + b2 + white * .1848) * .065;
+        }
+      }
+      const source = context.createBufferSource();
+      source.buffer = buffer;
+      source.loop = true;
+      const highpass = context.createBiquadFilter();
+      highpass.type = 'highpass'; highpass.frequency.value = 65;
+      const lowpass = context.createBiquadFilter();
+      lowpass.type = 'lowpass'; lowpass.frequency.value = 520; lowpass.Q.value = .45;
+      const swell = context.createGain(); swell.gain.value = .16;
+      const master = context.createGain(); master.gain.value = 0;
+      const lfo = context.createOscillator(); lfo.frequency.value = .075;
+      const lfoGain = context.createGain(); lfoGain.gain.value = .065;
+      source.connect(highpass).connect(lowpass).connect(swell).connect(master).connect(context.destination);
+      lfo.connect(lfoGain).connect(swell.gain);
+      source.start(); lfo.start();
+      return { context, master };
+    }
+
+    async function toggleSound() {
+      if (soundBusy) return;
+      soundBusy = true;
+      try {
+        if (!audio) audio = createOceanAudio();
+        const next = !state.sound;
+        if (next) await audio.context.resume();
+        audio.master.gain.cancelScheduledValues(audio.context.currentTime);
+        audio.master.gain.setTargetAtTime(next ? .7 : 0, audio.context.currentTime, .25);
+        state.sound = next;
+        document.body.classList.toggle('sound-on', next);
+        $('sound-label').textContent = next ? 'Sound on' : 'Sound off';
+        $('sound-button').setAttribute('aria-pressed', String(next));
+        $('sound-button').setAttribute('aria-label', next ? 'Mute ambient ocean sound' : 'Enable ambient ocean sound');
+        if (!next) setTimeout(() => { if (!state.sound && audio) audio.context.suspend().catch(() => {}); }, 1200);
+      } catch { showToast('Ocean audio is not available in this browser. The quiet is still here.'); }
+      finally { soundBusy = false; }
+    }
+    $('sound-button').addEventListener('click', toggleSound);
+    document.addEventListener('visibilitychange', () => {
+      previousTime = performance.now();
+      if (audio && state.sound) {
+        if (document.hidden) audio.context.suspend().catch(() => {});
+        else audio.context.resume().catch(() => {});
+      }
+    });
+
+    // A procedural canvas keeps the composition intact while modules load, or if WebGL is unavailable.
+    const preview = $('atmosphere-preview');
+    const ctx = preview.getContext('2d', { alpha: false });
+    let previewWidth = innerWidth, previewHeight = innerHeight, previewRatio = 1;
+    let previewPaintTime = -1;
+    function resizePreview() {
+      previewWidth = innerWidth; previewHeight = innerHeight;
+      previewRatio = Math.min(devicePixelRatio || 1, 1.25);
+      preview.width = Math.round(previewWidth * previewRatio);
+      preview.height = Math.round(previewHeight * previewRatio);
+      if (ctx) ctx.setTransform(previewRatio, 0, 0, previewRatio, 0, 0);
+      previewPaintTime = -1;
+    }
+    function renderPreview(time) {
+      if (!ctx) return;
+      if (previewPaintTime >= 0 && time === previewPaintTime) return;
+      previewPaintTime = time;
+      const w = previewWidth, h = previewHeight;
+      const horizon = h * .479;
+      const bx = w * (w < 650 ? .78 : .73) - smoothPointer.x * 3;
+      const by = horizon + h * .007;
+      const pulse = (.94 + .06 * Math.sin(time * .8)) * state.glow;
+      const skyGradient = ctx.createLinearGradient(0, 0, 0, h);
+      skyGradient.addColorStop(0, '#040a10');
+      skyGradient.addColorStop(.39, '#101e28');
+      skyGradient.addColorStop(.48, '#09151c');
+      skyGradient.addColorStop(.5, '#040c12');
+      skyGradient.addColorStop(1, '#06121c');
+      ctx.fillStyle = skyGradient; ctx.fillRect(0, 0, w, h);
+      ctx.fillStyle = '#050d12'; ctx.beginPath(); ctx.moveTo(0, horizon);
+      for (let x = 0; x <= w + 8; x += 8) {
+        const height = (Math.sin(x * .009) * .9 + Math.sin(x * .031) * .6 + Math.sin(x * .083) * .25) * h * .0013;
+        ctx.lineTo(x, horizon - height - h * .003);
+      }
+      ctx.lineTo(w, horizon + 8); ctx.lineTo(0, horizon + 8); ctx.fill();
+      const fog = ctx.createRadialGradient(w * .6, horizon - 35, 0, w * .6, horizon - 35, w * .62);
+      fog.addColorStop(0, `rgba(35, 55, 63, ${.09 + state.fog * 5})`);
+      fog.addColorStop(1, 'rgba(12, 24, 32, 0)');
+      ctx.save(); ctx.translate(0, horizon * .5); ctx.scale(1, .48); ctx.fillStyle = fog; ctx.fillRect(0, -h, w, h * 4); ctx.restore();
+      for (let row = 0; row < 105; row++) {
+        const depth = row / 104;
+        const y = horizon + 4 + Math.pow(depth, 1.85) * h * .55;
+        const amplitude = (.3 + depth * 3) * state.waves;
+        const length = 7 + depth * 30;
+        for (let x = -length; x < w + length; x += length * 1.65) {
+          const n = Math.sin(x * .074 + row * 3.18 + time * .13) * .5 + .5;
+          const offset = Math.sin(x * .008 + row * .72 + time * .22) * amplitude;
+          ctx.strokeStyle = `rgba(69, 102, 124, ${(.025 + depth * .11) * n})`;
+          ctx.lineWidth = .45 + depth * .55;
+          ctx.beginPath(); ctx.moveTo(x, y + offset);
+          ctx.quadraticCurveTo(x + length * .45, y + offset - amplitude * .5, x + length, y + offset);
+          ctx.stroke();
+        }
+      }
+      for (let row = 0; row < 125; row++) {
+        const depth = row / 124;
+        const y = by + 4 + Math.pow(depth, 1.8) * h * .49;
+        const flicker = .25 + .75 * Math.pow(Math.sin(row * 7.47 + time * .38), 2);
+        const width = (1 + depth * 22) * (.3 + flicker) * state.waves;
+        const shift = Math.sin(row * 2.31 + time * .17) * depth * 12;
+        const opacity = (.08 + flicker * .13) * (1 - depth * .78) * pulse;
+        ctx.fillStyle = `rgba(0, 205, 87, ${opacity})`;
+        ctx.fillRect(bx - width / 2 + shift, y, width, .6 + depth * 1.1);
+      }
+      const glowRadius = Math.min(w * .1, 110);
+      const glow = ctx.createRadialGradient(bx, by, 0, bx, by, glowRadius);
+      glow.addColorStop(0, `rgba(0, 255, 65, ${.18 * pulse})`);
+      glow.addColorStop(.15, `rgba(0, 200, 65, ${.08 * pulse})`);
+      glow.addColorStop(.5, `rgba(0, 160, 72, ${.022 * pulse})`);
+      glow.addColorStop(1, 'rgba(0, 120, 65, 0)');
+      ctx.fillStyle = glow; ctx.fillRect(bx - glowRadius, by - glowRadius, glowRadius * 2, glowRadius * 2);
+      ctx.shadowColor = '#00ff41'; ctx.shadowBlur = 12 * pulse;
+      ctx.fillStyle = `rgba(106, 255, 144, ${Math.min(1, .85 * pulse)})`;
+      ctx.beginPath(); ctx.arc(bx, by, Math.max(1.2, w * .0013), 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;
+    }
+
+    const noiseGLSL = `
+      float hash21(vec2 p) {
+        p = fract(p * vec2(123.34, 345.45));
+        p += dot(p, p + 34.345);
+        return fract(p.x * p.y);
+      }
+      float noise2(vec2 p) {
+        vec2 i = floor(p), f = fract(p);
+        f = f * f * (3.0 - 2.0 * f);
+        return mix(mix(hash21(i), hash21(i + vec2(1.0, 0.0)), f.x),
+                   mix(hash21(i + vec2(0.0, 1.0)), hash21(i + vec2(1.0, 1.0)), f.x), f.y);
+      }
+      float fbm(vec2 p) {
+        float f = 0.0, a = 0.5;
+        for (int i = 0; i < 4; i++) {
+          f += a * noise2(p); p = mat2(1.6, 1.2, -1.2, 1.6) * p + 4.7; a *= 0.5;
+        }
+        return f;
+      }
+    `;
+    const waveGLSL = `
+      float waveHeight(vec2 p) {
+        return uWaveStrength * (
+          sin(dot(p, vec2(0.15, 0.035)) + uTime * 0.26) * 0.20 +
+          sin(dot(p, vec2(-0.09, 0.28)) - uTime * 0.21) * 0.09 +
+          sin(dot(p, vec2(0.42, 0.26)) + uTime * 0.32) * 0.035);
+      }
+      vec2 waveGradient(vec2 p, float detail) {
+        vec2 g = cos(dot(p, vec2(0.15, 0.035)) + uTime * 0.26) * 0.20 * vec2(0.15, 0.035);
+        g += cos(dot(p, vec2(-0.09, 0.28)) - uTime * 0.21) * 0.09 * vec2(-0.09, 0.28);
+        g += cos(dot(p, vec2(0.42, 0.26)) + uTime * 0.32) * 0.035 * vec2(0.42, 0.26);
+        g += detail * cos(dot(p, vec2(1.12, 0.35)) - uTime * 0.34) * 0.026 * vec2(1.12, 0.35);
+        g += detail * cos(dot(p, vec2(-0.85, 2.18)) + uTime * 0.41) * 0.012 * vec2(-0.85, 2.18);
+        g += detail * cos(dot(p, vec2(2.89, 0.78)) - uTime * 0.48) * 0.008 * vec2(2.89, 0.78);
+        return g * uWaveStrength;
+      }
+    `;
+
+    async function initialize() {
+      const modules = await Promise.all([
+        import('three'),
+        import('three/addons/postprocessing/EffectComposer.js'),
+        import('three/addons/postprocessing/RenderPass.js'),
+        import('three/addons/postprocessing/UnrealBloomPass.js'),
+        import('three/addons/postprocessing/ShaderPass.js'),
+        import('three/addons/postprocessing/OutputPass.js')
+      ]);
+      THREE = modules[0];
+      ({ EffectComposer } = modules[1]); ({ RenderPass } = modules[2]);
+      ({ UnrealBloomPass } = modules[3]); ({ ShaderPass } = modules[4]); ({ OutputPass } = modules[5]);
+      renderer = new THREE.WebGLRenderer({ antialias: false, alpha: false, powerPreference: 'high-performance' });
+      if (!renderer.extensions.has('EXT_color_buffer_float') && !renderer.extensions.has('EXT_color_buffer_half_float')) throw new Error('HDR render targets are not supported');
+      renderer.domElement.id = 'webgl-canvas';
+      renderer.setClearColor(0x000000, 1);
+      renderer.setPixelRatio(getPixelRatio());
+      renderer.setSize(innerWidth, innerHeight);
+      renderer.outputColorSpace = THREE.SRGBColorSpace;
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.15;
+      renderer.debug.onShaderError = (gl, program, vertex, fragment) => {
+        shaderFailed = true;
+        console.error('Scene shader:', gl.getProgramInfoLog(program), gl.getShaderInfoLog(vertex), gl.getShaderInfoLog(fragment));
+      };
+      $('scene').appendChild(renderer.domElement);
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x000000);
+      scene.fog = new THREE.FogExp2(0x000000, state.fog);
+      camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, .15, 1800);
+      camera.position.set(0, 1.85, 28);
+      camera.lookAt(0, 0, -180);
+      cameraTarget = new THREE.Vector3(); cameraLookAt = new THREE.Vector3();
+      timeUniform = { value: 0 };
+      lightPosition = new THREE.Vector3();
+      baseGreen = new THREE.Color('#00ff41');
+      createAtmosphere();
+      setupLighting();
+      createWater();
+      setupPostprocessing();
+      positionBeacon();
+      renderWebGL(0);
+      if (shaderFailed) throw new Error('A WebGL shader could not be compiled');
+      sceneReady = true;
+      document.body.classList.add('has-webgl');
+      renderer.domElement.addEventListener('webglcontextlost', (event) => {
+        event.preventDefault(); sceneReady = false; document.body.classList.remove('has-webgl');
+        previewPaintTime = -1;
+        showToast('The bay is continuing in atmospheric preview while the graphics context rests.');
+      });
+      renderer.domElement.addEventListener('webglcontextrestored', () => {
+        sceneReady = true; renderDirty = true; document.body.classList.add('has-webgl');
+      });
+    }
+
+    function createAtmosphere() {
+      const material = new THREE.ShaderMaterial({
+        side: THREE.BackSide, depthWrite: false, fog: false,
+        uniforms: { uTime: timeUniform, uFogStrength: { value: state.fog / .006 } },
+        vertexShader: `
+          varying vec3 vWorldPosition;
+          void main() {
+            vec4 worldPosition = modelMatrix * vec4(position, 1.0);
+            vWorldPosition = worldPosition.xyz;
+            gl_Position = projectionMatrix * viewMatrix * worldPosition;
+          }
+        `,
+        fragmentShader: `
+          uniform float uTime;
+          uniform float uFogStrength;
+          varying vec3 vWorldPosition;
+          ${noiseGLSL}
+          void main() {
+            vec3 direction = normalize(vWorldPosition - cameraPosition);
+            float altitude = max(direction.y, 0.0);
+            float horizon = exp(-altitude * 8.0);
+            vec2 cloudUV = direction.xz / (altitude + 0.22);
+            float cloud = fbm(cloudUV * 1.9 + vec2(uTime * 0.007, uTime * 0.002));
+            float wisps = fbm(cloudUV * vec2(1.0, 3.1) + vec2(-uTime * 0.005, 2.0));
+            vec3 color = mix(vec3(0.0028, 0.006, 0.012), vec3(0.016, 0.027, 0.039), horizon * 0.8);
+            color *= 0.72 + cloud * 0.43;
+            color += vec3(0.002, 0.004, 0.005) * wisps * horizon;
+            color *= mix(1.10, 0.74, clamp(uFogStrength * 0.45, 0.0, 1.0));
+            float edge = 0.006 + noise2(vec2(direction.x * 86.0, 3.0)) * 0.003;
+            float shore = 1.0 - smoothstep(edge - 0.002, edge + 0.002, direction.y);
+            color = mix(color, vec3(0.0008, 0.002, 0.0035), shore * 0.9);
+            gl_FragColor = vec4(color, 1.0);
+          }
+        `
+      });
+      sky = new THREE.Mesh(new THREE.SphereGeometry(1100, 32, 16), material);
+      sky.renderOrder = -10;
+      scene.add(sky);
+    }
+
+    function makeHaloTexture() {
+      const canvas = document.createElement('canvas'); canvas.width = canvas.height = 256;
+      const context = canvas.getContext('2d');
+      const gradient = context.createRadialGradient(128, 128, 0, 128, 128, 128);
+      gradient.addColorStop(0, 'rgba(255,255,255,0.8)');
+      gradient.addColorStop(.075, 'rgba(255,255,255,0.43)');
+      gradient.addColorStop(.23, 'rgba(255,255,255,0.13)');
+      gradient.addColorStop(.52, 'rgba(255,255,255,0.035)');
+      gradient.addColorStop(1, 'rgba(255,255,255,0)');
+      context.fillStyle = gradient; context.fillRect(0, 0, 256, 256);
+      return new THREE.CanvasTexture(canvas);
+    }
+
+    function setupLighting() {
+      beaconMaterial = new THREE.MeshBasicMaterial({ color: baseGreen.clone().multiplyScalar(4.4), fog: false, toneMapped: false });
+      beacon = new THREE.Mesh(new THREE.SphereGeometry(.28, 20, 16), beaconMaterial);
+      beacon.position.set(60, 2.35, -185);
+      beacon.layers.enable(1);
+      scene.add(beacon);
+      beaconLight = new THREE.PointLight('#00ff41', 470, 650, 1.6);
+      beacon.add(beaconLight);
+      const texture = makeHaloTexture();
+      const haloMaterial = new THREE.SpriteMaterial({ map: texture, color: '#00ff41', blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, fog: false, toneMapped: false, opacity: .19 });
+      innerHalo = new THREE.Sprite(haloMaterial); innerHalo.scale.set(9, 9, 1); innerHalo.layers.enable(1); beacon.add(innerHalo);
+      outerHalo = new THREE.Sprite(haloMaterial.clone()); outerHalo.material.opacity = .085; outerHalo.scale.set(38, 32, 1); outerHalo.layers.enable(1); beacon.add(outerHalo);
+      beaconPole = new THREE.Mesh(new THREE.CylinderGeometry(.045, .055, 2.25, 8), new THREE.MeshStandardMaterial({ color: 0x020605, roughness: .6, metalness: .3 }));
+      beaconPole.position.set(beacon.position.x, 1.125, beacon.position.z);
+      scene.add(beaconPole);
+    }
+
+    function createWater() {
+      const geometry = new THREE.PlaneGeometry(2, 2, 320, 240);
+      geometry.rotateX(-Math.PI / 2);
+      const positions = geometry.attributes.position;
+      // Concentrate vertices near the viewer instead of spending the grid on a fog-hidden horizon.
+      for (let i = 0; i < positions.count; i++) {
+        const x = positions.getX(i);
+        const depth = (1 - positions.getZ(i)) * .5;
+        positions.setXYZ(i, Math.sign(x) * Math.pow(Math.abs(x), 1.35) * 950, 0, 70 - Math.pow(depth, 1.6) * 1500);
+      }
+      geometry.computeBoundingSphere();
+      const material = new THREE.ShaderMaterial({
+        fog: true,
+        uniforms: {
+          ...THREE.UniformsUtils.clone(THREE.UniformsLib.fog),
+          uTime: timeUniform,
+          uWaveStrength: { value: state.waves },
+          uLightPosition: { value: lightPosition },
+          uBeaconPower: { value: 1 }
+        },
+        vertexShader: `
+          uniform float uTime;
+          uniform float uWaveStrength;
+          varying vec3 vWorldPosition;
+          #include <fog_pars_vertex>
+          ${waveGLSL}
+          void main() {
+            vec3 displaced = position;
+            displaced.y = waveHeight(position.xz);
+            vec4 worldPosition = modelMatrix * vec4(displaced, 1.0);
+            vWorldPosition = worldPosition.xyz;
+            vec4 mvPosition = viewMatrix * worldPosition;
+            gl_Position = projectionMatrix * mvPosition;
+            #include <fog_vertex>
+          }
+        `,
+        fragmentShader: `
+          uniform float uTime;
+          uniform float uWaveStrength;
+          uniform vec3 uLightPosition;
+          uniform float uBeaconPower;
+          varying vec3 vWorldPosition;
+          #include <fog_pars_fragment>
+          ${noiseGLSL}
+          ${waveGLSL}
+          void main() {
+            vec2 p = vWorldPosition.xz;
+            float viewDistance = length(cameraPosition.xz - p);
+            float detail = 1.0 - smoothstep(85.0, 330.0, viewDistance);
+            vec2 gradient = waveGradient(p, detail);
+            vec3 normal = normalize(vec3(-gradient.x, 1.0, -gradient.y));
+            vec3 viewDir = normalize(cameraPosition - vWorldPosition);
+            vec3 lightDir = normalize(uLightPosition - vWorldPosition);
+            vec3 halfwayDir = normalize(viewDir + lightDir);
+            float fresnel = 0.025 + 0.975 * pow(1.0 - max(dot(normal, viewDir), 0.0), 4.5);
+            vec3 reflected = reflect(-viewDir, normal);
+            float horizonReflection = exp(-max(reflected.y, 0.0) * 15.0);
+            float rippleShade = 0.72 + 0.28 * noise2(p * 0.75 + uTime * 0.015);
+            vec3 skyReflection = mix(vec3(0.005, 0.013, 0.024), vec3(0.018, 0.035, 0.053), horizonReflection);
+            // No bright diffuse water: only a black base, grazing sky reflections, and green specular.
+            vec3 color = vec3(0.0002, 0.0005, 0.0008) + skyReflection * (0.22 + fresnel * 0.78) * rippleShade * 0.88;
+            float t = (cameraPosition.z - p.y) / (cameraPosition.z - uLightPosition.z);
+            float reflectionX = mix(cameraPosition.x, uLightPosition.x, t);
+            float width = 0.16 + max(cameraPosition.z - p.y, 0.0) * 0.014;
+            float offset = p.x - reflectionX + gradient.x * (0.5 + t * 2.8);
+            float corridor = exp(-pow(abs(offset) / width, 1.65));
+            float phase = p.y * 3.7 + sin(p.x * 0.63 + uTime * 0.15) * 2.0 + noise2(p * 0.4) * 2.5 - uTime * 0.4;
+            float stripes = smoothstep(0.23, 0.92, 0.5 + 0.5 * sin(phase));
+            stripes = mix(0.43, stripes, 1.0 - smoothstep(0.3, 2.8, fwidth(phase)));
+            stripes *= 0.32 + 0.68 * noise2(p * vec2(1.7, 0.8) + uTime * 0.025);
+            float sourceSide = 1.0 - smoothstep(0.99, 1.08, t);
+            float specular = pow(max(dot(normal, halfwayDir), 0.0), 110.0);
+            float greenReflection = corridor * (0.007 + stripes * 0.16 + specular * 0.48);
+            greenReflection *= sourceSide * mix(0.33, 1.0, clamp(t, 0.0, 1.0)) * uBeaconPower;
+            color += vec3(0.0005, 1.0, 0.105) * greenReflection;
+            gl_FragColor = vec4(color, 1.0);
+            #include <fog_fragment>
+          }
+        `
+      });
+      water = new THREE.Mesh(geometry, material);
+      scene.add(water);
+    }
+
+    function setupPostprocessing() {
+      bloomComposer = new EffectComposer(renderer);
+      bloomComposer.setPixelRatio(getPixelRatio() * .7);
+      bloomComposer.setSize(innerWidth, innerHeight);
+      bloomComposer.renderToScreen = false;
+      bloomComposer.addPass(new RenderPass(scene, camera));
+      bloomPass = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 1.9, .85, .3);
+      bloomComposer.addPass(bloomPass);
+      finalComposer = new EffectComposer(renderer);
+      finalComposer.addPass(new RenderPass(scene, camera));
+      mixPass = new ShaderPass(new THREE.ShaderMaterial({
+        uniforms: { baseTexture: { value: null }, bloomTexture: { value: bloomComposer.renderTarget2.texture }, uTime: timeUniform },
+        vertexShader: `
+          varying vec2 vUv;
+          void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }
+        `,
+        fragmentShader: `
+          uniform sampler2D baseTexture;
+          uniform sampler2D bloomTexture;
+          uniform float uTime;
+          varying vec2 vUv;
+          void main() {
+            vec3 color = texture2D(baseTexture, vUv).rgb + texture2D(bloomTexture, vUv).rgb * 0.85;
+            vec2 centered = (vUv - 0.5) * vec2(1.0, 0.85);
+            color *= 1.0 - smoothstep(0.2, 0.72, length(centered)) * 0.29;
+            float grain = fract(sin(dot(vUv * vec2(1920.0, 1080.0) + floor(uTime * 12.0), vec2(12.9898, 78.233))) * 43758.5453);
+            color += (grain - 0.5) * 0.00065;
+            gl_FragColor = vec4(max(color, vec3(0.0)), 1.0);
+          }
+        `
+      }), 'baseTexture');
+      finalComposer.addPass(mixPass);
+      finalComposer.addPass(new OutputPass());
+    }
+
+    function getPixelRatio() { return Math.min(devicePixelRatio || 1, innerWidth < 650 ? 1.35 : 1.5); }
+
+    function positionBeacon() {
+      if (!camera || !beacon) return;
+      const screenOffset = innerWidth < 650 ? .56 : .46;
+      beacon.position.x = Math.tan(THREE.MathUtils.degToRad(camera.fov * .5)) * camera.aspect * (28 - beacon.position.z) * screenOffset;
+      beaconPole.position.x = beacon.position.x;
+      beacon.updateMatrixWorld(true);
+      beaconLight.getWorldPosition(lightPosition);
+    }
+
+    function renderWebGL(delta) {
+      timeUniform.value = sceneTime;
+      const pulse = .94 + .06 * Math.sin(sceneTime * .8);
+      beaconLight.intensity = 470 * pulse * state.glow;
+      beaconMaterial.color.copy(baseGreen).multiplyScalar(4.4 * pulse * state.glow);
+      innerHalo.material.opacity = .19 * pulse * state.glow;
+      outerHalo.material.opacity = .085 * pulse * state.glow * (.8 + state.fog * 32);
+      // The custom water shader follows the attached PointLight, including its breathing intensity.
+      water.material.uniforms.uBeaconPower.value = beaconLight.intensity / 470;
+      const movement = reducedMotion.matches ? 1 : state.paused ? 0 : 1 - Math.exp(-delta * 1.25);
+      cameraTarget.set(smoothPointer.x * .75 + (state.immersive ? 1.7 : 0), state.immersive ? 1.35 : 1.85, state.immersive ? 17 : 28);
+      camera.position.lerp(cameraTarget, movement);
+      cameraLookAt.set(smoothPointer.x * 1.2, smoothPointer.y * -.11, -180);
+      camera.lookAt(cameraLookAt);
+      // Only the beacon and its local fog halos inhabit layer 1; the sky and sea never bloom.
+      camera.layers.set(1);
+      bloomComposer.render(delta);
+      camera.layers.set(0);
+      finalComposer.render(delta);
+    }
+
+    function resize() {
+      resizePreview();
+      renderDirty = true;
+      if (!renderer || !camera || !finalComposer) return;
+      camera.aspect = innerWidth / innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setPixelRatio(getPixelRatio());
+      renderer.setSize(innerWidth, innerHeight);
+      bloomComposer.setPixelRatio(getPixelRatio() * .7);
+      bloomComposer.setSize(innerWidth, innerHeight);
+      finalComposer.setPixelRatio(getPixelRatio());
+      finalComposer.setSize(innerWidth, innerHeight);
+      positionBeacon();
+    }
+    window.addEventListener('resize', resize, { passive: true });
+
+    function animate(now) {
+      requestAnimationFrame(animate);
+      const delta = Math.max(0, Math.min((now - previousTime) / 1000, .05));
+      previousTime = now;
+      if (document.hidden) return;
+      if (!state.paused) sceneTime += delta;
+      const follow = 1 - Math.exp(-delta * 1.4);
+      if (!state.paused && !reducedMotion.matches) {
+        smoothPointer.x += (pointer.x - smoothPointer.x) * follow;
+        smoothPointer.y += (pointer.y - smoothPointer.y) * follow;
+      }
+      if (sceneReady) {
+        try {
+          if (!state.paused || renderDirty) { renderWebGL(delta); renderDirty = false; }
+        }
+        catch (error) {
+          console.warn('Using the atmospheric preview:', error);
+          sceneReady = false; document.body.classList.remove('has-webgl');
+          previewPaintTime = -1;
+          showToast('Your graphics device needs a quieter moment. Continuing in atmospheric preview.');
+        }
+      } else renderPreview(sceneTime);
+    }
+
+    updatePauseUI();
+    syncSettings();
+    resizePreview();
+    renderPreview(0);
+    requestAnimationFrame(animate);
+    initialize().catch((error) => {
+      console.warn('WebGL experience unavailable; the procedural preview remains active.', error);
+      sceneReady = false;
+      document.body.classList.remove('has-webgl');
+      if (renderer) { renderer.dispose(); renderer.domElement.remove(); renderer = null; }
+      showToast('Atmospheric preview is active. WebGL could not be started on this device.');
+    });
+  </script>
+</body>
+</html>
